@@ -1,0 +1,2119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shruti Lab v2 — Indian Classical Music Shruti Visualizer</title>
+<meta name="description" content="Explore swaras, pitch accuracy and acoustic effects with live microphone pitch detection, reference tones and reproducible experiments. Runs entirely in your browser.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%23b45a12'/%3E%3Ccircle cx='32' cy='32' r='18' fill='none' stroke='%23fbf6ea' stroke-width='3'/%3E%3Ccircle cx='32' cy='32' r='6' fill='%23fbf6ea'/%3E%3C/svg%3E">
+<style>
+:root{
+  --ivory:#fbf6ea; --cream:#f3ead4; --paper:#fffdf8; --ink:#2b2118; --muted:#6a5a48;
+  --saffron:#b45a12; --saffron-soft:#f8e4c8; --terracotta:#a8472f; --terra-soft:#f4dcd3;
+  --teal:#2f7f7a; --teal-soft:#d9eeeb; --gold:#b8923a; --line:#e6d9bc;
+  --radius:18px; --shadow:0 8px 24px rgba(90,60,20,.09);
+  --serif:"Palatino Linotype",Palatino,"Book Antiqua",Georgia,"Noto Serif Devanagari","Nirmala UI",serif;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Devanagari","Nirmala UI",Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;font-family:var(--sans);color:var(--ink);background:var(--ivory);line-height:1.6;font-size:16px;
+  background-image:radial-gradient(circle at 12% 8%,rgba(184,146,58,.10),transparent 38%),radial-gradient(circle at 92% 30%,rgba(47,127,122,.07),transparent 40%)}
+h1,h2,h3,h4{font-family:var(--serif);line-height:1.2;margin:0 0 .5em;font-weight:700;color:var(--ink)}
+h1{font-size:clamp(2rem,4.6vw,3.4rem)} h2{font-size:clamp(1.55rem,3vw,2.1rem)} h3{font-size:1.25rem} h4{font-size:1.05rem}
+p{margin:0 0 1em} a{color:var(--saffron)} small,.small{font-size:.88rem} .muted{color:var(--muted)}
+.skip{position:absolute;left:-999px;top:0;background:var(--ink);color:#fff;padding:.6rem 1rem;z-index:100}
+.skip:focus{left:8px;top:8px}
+:focus-visible{outline:3px solid var(--teal);outline-offset:2px;border-radius:6px}
+.container{width:min(1180px,100% - 32px);margin-inline:auto}
+.section{padding:56px 0}
+.section.alt{background:rgba(243,234,212,.55);border-block:1px solid var(--line)}
+.eyebrow{text-transform:uppercase;letter-spacing:.14em;font-size:.78rem;color:var(--terracotta);font-weight:700;margin-bottom:.8rem}
+.lead{font-size:1.15rem;color:#40342a;max-width:60ch}
+.fineprint{font-size:.85rem;color:var(--muted)}
+.orn{display:flex;align-items:center;gap:12px;color:var(--gold);margin:6px 0 22px}
+.orn::before,.orn::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.orn span{font-size:1.1rem}
+
+/* header */
+.site-header{position:sticky;top:0;z-index:50;background:rgba(251,246,234,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.nav{display:flex;align-items:center;gap:16px;min-height:64px}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink);font-family:var(--serif);font-weight:700;font-size:1.15rem;white-space:nowrap}
+.brand small{display:block;font-family:var(--sans);font-weight:500;font-size:.68rem;color:var(--muted);letter-spacing:.04em}
+.logo{width:38px;height:38px;flex:none}
+.nav-links{display:flex;gap:2px;margin-left:auto;flex-wrap:wrap;justify-content:flex-end}
+.nav-links a{padding:.4rem .55rem;border-radius:999px;text-decoration:none;color:var(--ink);font-size:.88rem;font-weight:500;white-space:nowrap}
+.nav-links a:hover{background:var(--saffron-soft)}
+.nav-links a[aria-current="page"]{background:var(--saffron);color:#fff}
+.menu-btn{display:none;margin-left:auto;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:.5rem .8rem;font-size:1rem;cursor:pointer}
+@media(max-width:1020px){
+  .menu-btn{display:block}
+  .nav{flex-wrap:wrap;padding:8px 0}
+  .nav-links{display:none;width:100%;flex-direction:column;margin:0}
+  .nav-links.open{display:flex}
+  .nav-links a{padding:.7rem 1rem;border-radius:10px}
+}
+.statusbar{position:sticky;top:64px;z-index:40;background:var(--terracotta);color:#fff;font-size:.92rem}
+.statusbar .container{display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:6px 0}
+.statusbar button{background:#fff;color:var(--terracotta);border:0;border-radius:999px;padding:.2rem .8rem;font-weight:700;cursor:pointer}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#fff;margin-right:6px;animation:pulse 1.2s infinite}
+@keyframes pulse{50%{opacity:.25}}
+
+/* buttons / forms */
+.btn{display:inline-flex;align-items:center;gap:8px;justify-content:center;border:1.5px solid transparent;border-radius:999px;padding:.7rem 1.3rem;font:inherit;font-weight:650;cursor:pointer;text-decoration:none;transition:transform .15s,box-shadow .15s,background .15s}
+.btn:hover{transform:translateY(-1px);box-shadow:0 5px 14px rgba(90,60,20,.18)}
+.btn:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none}
+.btn-primary{background:var(--saffron);color:#fff}
+.btn-primary:hover{background:#9c4c0d}
+.btn-secondary{background:var(--paper);color:var(--ink);border-color:var(--gold)}
+.btn-teal{background:var(--teal);color:#fff}
+.btn-danger{background:var(--terracotta);color:#fff}
+.btn-sm{padding:.4rem .9rem;font-size:.9rem}
+.btn-row{display:flex;gap:12px;flex-wrap:wrap;margin:1.2rem 0}
+label{font-weight:600;font-size:.92rem;display:block;margin-bottom:.25rem}
+input[type=number],input[type=text],select{width:100%;font:inherit;padding:.55rem .7rem;border:1.5px solid var(--line);border-radius:10px;background:#fff;color:var(--ink)}
+input[type=range]{width:100%;accent-color:var(--saffron)}
+input[type=checkbox]{accent-color:var(--teal);width:18px;height:18px;vertical-align:middle;margin-right:6px}
+.field{margin-bottom:14px}
+.row{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+.hint{font-size:.82rem;color:var(--muted);margin-top:.2rem}
+
+/* cards & grids */
+.card{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:22px;box-shadow:var(--shadow)}
+.card h3{margin-bottom:.4em}
+.grid{display:grid;gap:20px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))}
+.g4{grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr))}
+.badge{display:inline-block;font-size:.72rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:.15rem .6rem;border-radius:999px;border:1px solid}
+.b-trad{background:var(--saffron-soft);color:#7a3e08;border-color:#e2b985}
+.b-model{background:var(--teal-soft);color:#1d5551;border-color:#9fcfca}
+.b-meas{background:var(--terra-soft);color:#7d2f1c;border-color:#e0a898}
+.callout{border-left:5px solid var(--gold);background:#fff8e8;padding:14px 18px;border-radius:0 12px 12px 0;margin:16px 0;font-size:.95rem}
+.callout.warn{border-color:var(--terracotta);background:#fdf0ec}
+.callout.info{border-color:var(--teal);background:#eef8f6}
+.callout p:last-child{margin:0}
+details{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:12px 16px;margin-bottom:10px}
+summary{cursor:pointer;font-weight:650}
+details[open] summary{margin-bottom:8px}
+ul,ol{padding-left:1.2rem;margin:0 0 1em} li{margin-bottom:.35em}
+table.data{width:100%;border-collapse:collapse;font-size:.88rem}
+table.data th,table.data td{border-bottom:1px solid var(--line);padding:.5rem .6rem;text-align:left;white-space:nowrap}
+table.data th{background:var(--cream);font-weight:700;position:sticky;top:0}
+.tablewrap{overflow:auto;max-height:420px;border:1px solid var(--line);border-radius:12px;background:#fff}
+.pass{color:#1d5551;font-weight:700} .fail{color:#9c2f1a;font-weight:700}
+.empty{padding:18px;color:var(--muted);text-align:center}
+
+/* hero */
+.hero{position:relative;overflow:hidden;padding:64px 0 48px}
+.hero-mandala{position:absolute;right:-180px;top:-160px;width:720px;height:720px;opacity:.22;pointer-events:none}
+.hero-grid{position:relative;display:grid;gap:32px;grid-template-columns:1.1fr .9fr;align-items:center}
+@media(max-width:900px){.hero-grid{grid-template-columns:1fr}}
+.hero h1 span{color:var(--saffron)}
+canvas{display:block;width:100%;border-radius:12px;background:#fff;border:1px solid var(--line)}
+.c-h120{height:120px}.c-h160{height:160px}.c-h220{height:220px}.c-h260{height:260px}.c-h200{height:200px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 4px}
+.chip{border:1.5px solid var(--gold);background:var(--paper);border-radius:999px;padding:.35rem .9rem;cursor:pointer;font:inherit;font-weight:650;color:var(--ink)}
+.chip:hover{background:var(--saffron-soft)}
+.chip[aria-pressed="true"]{background:var(--saffron);color:#fff;border-color:var(--saffron)}
+.mini-swaras{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:14px}
+.mini{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:16px;text-align:center;cursor:pointer;font:inherit;color:var(--ink);box-shadow:var(--shadow);transition:transform .15s}
+.mini:hover{transform:translateY(-3px)}
+.mini .dv{font-family:var(--serif);font-size:2rem;color:var(--saffron);display:block;line-height:1.1}
+.mini b{display:block;font-family:var(--serif);font-size:1.1rem}
+.mini span.f{font-size:.82rem;color:var(--muted)}
+.hbars{display:grid;gap:6px;margin-top:10px}
+.hbar{display:grid;grid-template-columns:150px 1fr 190px;gap:10px;align-items:center;font-size:.85rem}
+.hbar .bar{height:12px;border-radius:99px;background:linear-gradient(90deg,var(--saffron),var(--gold))}
+@media(max-width:700px){.hbar{grid-template-columns:1fr}}
+.feature{display:flex;gap:14px}
+.feature .ic{flex:none;width:44px;height:44px;border-radius:12px;background:var(--saffron-soft);display:grid;place-items:center;font-size:1.3rem;color:var(--saffron)}
+
+/* swara cards */
+.swara-card{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow)}
+.swara-card .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.swara-card .num{background:var(--teal);color:#fff;border-radius:999px;font-size:.78rem;font-weight:700;padding:.1rem .6rem}
+.swara-card .dv{font-family:var(--serif);font-size:2.2rem;color:var(--saffron);line-height:1}
+.swara-card h3 small{font-family:var(--sans);font-weight:500;color:var(--muted);font-size:.85rem;margin-left:6px}
+.swara-card dl{display:grid;grid-template-columns:auto 1fr;gap:2px 12px;margin:10px 0;font-size:.9rem}
+.swara-card dt{color:var(--muted)} .swara-card dd{margin:0;font-weight:650;font-variant-numeric:tabular-nums}
+.fbar{position:relative;height:10px;border-radius:99px;background:linear-gradient(90deg,var(--teal-soft),var(--saffron-soft));margin:8px 0 12px}
+.fbar i{position:absolute;top:-4px;width:18px;height:18px;border-radius:50%;background:var(--saffron);border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3);transform:translateX(-50%)}
+
+/* live */
+.bigread{font-family:var(--serif);font-size:clamp(2.4rem,6vw,3.6rem);font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.bigread small{font-size:1.1rem;color:var(--muted);font-family:var(--sans)}
+.swread{font-size:1.4rem;font-family:var(--serif);color:var(--saffron);min-height:2rem}
+.status{display:inline-flex;gap:8px;align-items:center;border-radius:999px;padding:.35rem 1rem;font-weight:700;border:1.5px solid var(--line);background:#fff}
+.status.ok{background:var(--teal-soft);border-color:var(--teal);color:#1d5551}
+.status.off{background:var(--saffron-soft);border-color:var(--saffron);color:#7a3e08}
+.status.none{background:#eee6d2;color:var(--muted)}
+.meter{position:relative;height:46px;border-radius:12px;background:linear-gradient(90deg,var(--saffron-soft),#fff 35%,#fff 65%,var(--terra-soft));border:1px solid var(--line);margin:14px 0 4px;overflow:hidden}
+.m-zone{position:absolute;top:0;bottom:0;background:rgba(47,127,122,.28);border-inline:2px solid var(--teal)}
+.m-tick{position:absolute;top:0;bottom:0;width:1px;background:var(--muted)}
+.m-needle{position:absolute;top:0;bottom:0;width:5px;margin-left:-2px;background:var(--ink);border-radius:3px;transition:left .08s linear;left:50%}
+.m-needle.idle{opacity:.2}
+.mlabels{display:flex;justify-content:space-between;font-size:.78rem;color:var(--muted)}
+.prog{height:8px;border-radius:99px;background:#eee6d2;overflow:hidden}
+.prog i{display:block;height:100%;width:0;background:var(--teal);transition:width .08s}
+.prog.lv i{background:var(--saffron)}
+.split{display:grid;gap:20px;grid-template-columns:1fr 1fr}
+@media(max-width:900px){.split{grid-template-columns:1fr}}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:.92rem}
+.kv dt{color:var(--muted)} .kv dd{margin:0;font-weight:650;font-variant-numeric:tabular-nums}
+.page{display:none} .page.active{display:block}
+.pagehead{padding:40px 0 10px;position:relative}
+.pagehead h1{font-size:clamp(1.8rem,3.6vw,2.6rem)}
+.toast{position:fixed;left:50%;bottom:20px;transform:translate(-50%,30px);background:var(--ink);color:#fff;padding:.8rem 1.2rem;border-radius:12px;max-width:min(560px,92vw);opacity:0;pointer-events:none;transition:all .25s;z-index:200}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.toast.err{background:var(--terracotta)}
+footer{background:#2b2118;color:#eadfc6;padding:40px 0 24px;margin-top:40px}
+footer a{color:#f3c98a} footer h4{color:#fff}
+footer .fgrid{display:grid;gap:24px;grid-template-columns:2fr 1fr 1fr}
+@media(max-width:800px){footer .fgrid{grid-template-columns:1fr}}
+footer ul{list-style:none;padding:0}
+pre.code{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;overflow:auto;font-size:.8rem;max-height:260px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.82rem;margin-top:6px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:middle}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to main content</a>
+
+<header class="site-header">
+  <div class="container nav">
+    <a class="brand" href="#home" aria-label="Shruti Lab home"><span class="logo" id="logoMark" aria-hidden="true"></span><span>Shruti Lab<small>Swaras · Pitch · Acoustics</small></span></a>
+    <button class="menu-btn" id="menuBtn" aria-expanded="false" aria-controls="navLinks">☰ Menu</button>
+    <nav class="nav-links" id="navLinks" aria-label="Main">
+      <a href="#home" data-page="home">Home</a>
+      <a href="#learn" data-page="learn">Learn Swaras</a>
+      <a href="#live" data-page="live">Live Visualizer</a>
+      <a href="#shruti" data-page="shruti">Explore Shruti</a>
+      <a href="#lab" data-page="lab">Acoustic Lab</a>
+      <a href="#study" data-page="study">Simulation Study</a>
+      <a href="#research" data-page="research">Research</a>
+      <a href="#tests" data-page="tests">Validation Tests</a>
+      <a href="#about" data-page="about">About</a>
+    </nav>
+  </div>
+</header>
+<div class="statusbar" id="statusbar" hidden role="status" aria-live="polite">
+  <div class="container">
+    <span id="sbMic" hidden><span class="dot"></span><b>Microphone is ON</b> <span id="sbMicOwner"></span> <button id="sbMicStop">Stop microphone</button></span>
+    <span id="sbTone" hidden><span class="dot"></span><b>Tone playing</b> <button id="sbToneStop">Stop tone</button></span>
+  </div>
+</div>
+
+<main id="main" tabindex="-1">
+<noscript><div class="container section"><div class="callout warn">This application needs JavaScript enabled.</div></div></noscript>
+
+<!-- ============================= HOME ============================= -->
+<section class="page" id="page-home" aria-label="Home">
+  <div class="hero">
+    <svg class="hero-mandala" id="heroMandala" aria-hidden="true"></svg>
+    <div class="container hero-grid">
+      <div>
+        <p class="eyebrow">Indian Knowledge System · Research Prototype</p>
+        <h1>Experience the <span>Science</span> and Soul of Indian Classical Music</h1>
+        <p class="lead">The seven swaras — Sa, Re, Ga, Ma, Pa, Dha, Ni — are defined by <em>relationships between pitches</em>, measured from a tonic you choose. Pick your Sa and each swara becomes a frequency you can hear, see and compare with your own voice.</p>
+        <div class="btn-row">
+          <a class="btn btn-primary" href="#learn">Start Exploring</a>
+          <a class="btn btn-secondary" href="#live">Open Live Visualizer</a>
+        </div>
+        <p class="fineprint">Everything runs locally in your browser. No audio is uploaded or stored remotely.</p>
+      </div>
+      <div class="card">
+        <h3>Waveform preview</h3>
+        <canvas id="heroWave" class="c-h160" role="img" aria-label="Animated waveform of the selected swara"></canvas>
+        <div class="chips" id="heroChips" role="group" aria-label="Select a swara to preview and hear"></div>
+        <p class="small muted" id="heroCaption" style="margin:6px 0 0"></p>
+        <p class="hint">Illustrative display: the number of cycles drawn is proportional to the swara's frequency relative to Sa. Click a chip to hear the tone.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section alt">
+    <div class="container">
+      <h2>The seven basic swaras</h2>
+      <p class="muted">Tap a card to hear it. Frequencies below follow your chosen tonic (<b id="homeSaTxt"></b>) and the <b id="homeModelTxt"></b> model — not a universal fixed table.</p>
+      <div class="mini-swaras" id="homeSwaras"></div>
+      <div class="btn-row"><a class="btn btn-secondary btn-sm" href="#learn">Learn each swara in depth →</a></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="container">
+      <h2>Pitch, frequency, harmonics and shruti</h2>
+      <div class="grid g4">
+        <div class="card"><h3>Pitch</h3><p>Pitch is how high or low a sound is <em>perceived</em>. For a steady voiced sound it is closely related to the fundamental frequency, but perception also depends on timbre and context.</p></div>
+        <div class="card"><h3>Frequency</h3><p>Frequency counts vibrations per second (Hz). Doubling the frequency raises the pitch by one octave, so pitch intervals are ratios, not differences.</p></div>
+        <div class="card"><h3>Harmonics</h3><p>A voice or string vibrates at a fundamental and at whole-number multiples of it. These harmonics shape timbre and are one reason pitch detectors can make octave errors.</p></div>
+        <div class="card"><h3>Shruti</h3><p>In traditional theory, <em>shruti</em> refers to the smallest audible pitch distinctions used in music; classical texts speak of 22 per octave. How those relate to measurable frequencies is debated, so this tool does not claim a single answer.</p></div>
+      </div>
+      <div class="card" style="margin-top:20px">
+        <h3>Harmonic series of your Sa <span class="badge b-model">Computed</span></h3>
+        <p class="small muted">Harmonic <i>n</i> of Sa is exactly <i>n</i> × Sa Hz. The label shows the nearest swara position in the selected model, so you can see how the harmonic series relates to swaras.</p>
+        <div class="hbars" id="harmonicsList"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section alt">
+    <div class="container">
+      <h2>What you can do here</h2>
+      <div class="grid g2">
+        <div class="card feature"><div class="ic">🎙</div><div><h3>Live pitch detection</h3><p>Sing or hum into your microphone and see frequency, nearest swara and cents deviation in real time. <a href="#live">Open it →</a></p></div></div>
+        <div class="card feature"><div class="ic">🔊</div><div><h3>Reference tones</h3><p>Generate Sa or any swara with the Web Audio API and sing along. <a href="#learn">Learn swaras →</a></p></div></div>
+        <div class="card feature"><div class="ic">🎼</div><div><h3>Swara mapping & intervals</h3><p>Compare equal-tempered, just-intonation and Pythagorean models of each interval. <a href="#shruti">Explore shruti →</a></p></div></div>
+        <div class="card feature"><div class="ic">🧪</div><div><h3>Acoustic experiments</h3><p>Record pitch stability, estimate decay time with a noise burst, run reproducible synthetic tests and export CSV. <a href="#lab">Acoustic lab →</a></p></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="container">
+      <h2>Research project overview</h2>
+      <p class="lead">Research question: <em>How reliably can a browser-based pitch estimator measure sustained vocal tones, and how do background noise and room reverberation affect its accuracy and stability?</em></p>
+      <div class="grid g2" style="margin-top:18px">
+        <div class="card"><h3>✔ Implemented now</h3><ul>
+          <li>Real microphone pitch detection (YIN-based pipeline) and an autocorrelation baseline</li>
+          <li>Audible reference-tone generator (Web Audio oscillators)</li>
+          <li>Swara mapping under three documented interval models</li>
+          <li>Pitch-stability recording with statistics and CSV export</li>
+          <li>Interrupted-noise decay-time estimator with synthetic self-check</li>
+          <li>Reproducible synthetic-tone validation with seeded noise</li>
+          <li><b>Version 2:</b> a drone-aware pitch tracker (calibrated drone-spectrum subtraction) and a seeded simulation study with known ground truth (drone, noise, reverberation) with CSV/WAV export</li>
+        </ul></div>
+        <div class="card"><h3>◔ To be investigated experimentally</h3><ul>
+          <li>Whether confidence-based rejection plus smoothing reduces errors vs. the baseline on real sustained vocal tones</li>
+          <li>Effect of background noise levels on accuracy and stability</li>
+          <li>Effect of room reverberation on pitch estimates</li>
+          <li>Whether drone-aware tracking and room-adaptive settings help on <i>real</i> recordings, not just in simulation</li>
+          <li>Whether any contribution is genuinely novel (requires prior-art search — nothing is claimed)</li>
+        </ul><p><a href="#research">Read the full research design →</a></p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================= LEARN ============================= -->
+<section class="page" id="page-learn" aria-label="Learn Swaras">
+  <div class="container pagehead">
+    <p class="eyebrow">Learn Swaras</p>
+    <h1>The seven swaras and their frequencies</h1>
+    <p class="lead">Choose a tonic and a tuning model. Every frequency on this page is computed from them.</p>
+  </div>
+  <div class="container">
+    <div class="card">
+      <div class="row">
+        <div class="field"><label for="learnSa">Tonic Sa (Hz)</label><input type="number" id="learnSa" data-bind="sa" min="80" max="600" step="0.1"><div class="hint">Default 240 Hz. Singers pick Sa to suit their voice.</div></div>
+        <div class="field"><label for="learnSaR">Adjust Sa</label><input type="range" id="learnSaR" data-bind="sa" min="100" max="500" step="0.5" aria-label="Tonic Sa slider"></div>
+        <div class="field"><label for="learnModel">Tuning convention</label>
+          <select id="learnModel" data-bind="model">
+            <option value="et">Equal-tempered approximation (12-TET)</option>
+            <option value="ji">5-limit just intonation (simplified)</option>
+            <option value="py">Pythagorean (3-limit)</option>
+          </select></div>
+        <div class="field"><label for="learnWave">Tone timbre</label>
+          <select id="learnWave" data-bind="wave"><option value="sine">Sine (pure)</option><option value="triangle">Triangle</option><option value="rich">Harmonic-rich (voice/string-like)</option></select></div>
+        <div class="field"><label for="learnVol">Volume</label><input type="range" id="learnVol" data-bind="volume" min="0" max="1" step="0.01"></div>
+      </div>
+      <div class="btn-row" style="margin:6px 0 0">
+        <button class="btn btn-primary" id="playAroha">▶ Play ascending (Aroha)</button>
+        <button class="btn btn-secondary" id="playAvaroha">▶ Play descending (Avaroha)</button>
+        <button class="btn btn-danger" id="learnStop">■ Stop</button>
+      </div>
+    </div>
+    <div class="callout info"><p><b>Current convention:</b> <span id="learnModelDesc"></span></p></div>
+    <div class="callout warn"><p><b>Important:</b> the seven swaras do <em>not</em> have one universal set of fixed frequencies. Their sounding pitch depends on the tonic Sa you choose, the tuning convention, the raga, and the performer's practice. The numbers here come from a <b>documented simplified model</b>. The equal-tempered option is an <b>approximation</b>, not the only correct model of Indian classical music, and real performances include microtonal inflections (such as <i>gamak</i> and <i>meend</i>) that a table of seven numbers cannot capture.</p></div>
+
+    <div class="grid g3" id="learnCards" style="margin-top:20px"></div>
+
+    <h2 style="margin-top:44px">Seven swaras vs. twelve pitch positions</h2>
+    <p>Within one octave, Hindustani music commonly uses twelve pitch positions: seven <i>shuddha</i> (natural) swaras plus lowered (<i>komal</i>) Re, Ga, Dha, Ni and a raised (<i>tivra</i>) Ma. Sa and Pa are <i>achala</i> (immovable). The seven names are therefore a naming framework, not seven isolated pitches. Selected-model values for all twelve positions:</p>
+    <div class="tablewrap"><table class="data"><thead><tr><th>#</th><th>Position</th><th>Notation</th><th>Ratio to Sa</th><th>Cents above Sa</th><th>12-TET cents</th><th>Frequency (Hz)</th><th>Play</th></tr></thead><tbody id="twelveBody"></tbody></table></div>
+    <details style="margin-top:16px"><summary>About notation, ratios and the models</summary>
+      <p>Notation: capital letters = shuddha (S, R, G, M, P, D, N); lowercase = komal (r, g, d, n); M with a prime / "Tivra Ma" = raised Ma. Cents are a logarithmic unit: 1200 cents = one octave, 100 cents = one equal-tempered semitone.</p>
+      <p><b>12-TET</b> divides the octave into twelve equal steps (ratio 2<sup>i/12</sup>). <b>Just intonation</b> uses small-integer ratios such as 3/2 for Pa and 5/4 for Ga; several variants exist in the literature and this is one simplified table. <b>Pythagorean</b> builds all pitches from stacked 3/2 fifths. None of these is presented as "the" Indian tuning.</p>
+    </details>
+  </div>
+</section>
+
+<!-- ============================= LIVE ============================= -->
+<section class="page" id="page-live" aria-label="Live Shruti Visualizer">
+  <div class="container pagehead">
+    <p class="eyebrow">Live Shruti Visualizer</p>
+    <h1>Sing against a reference Sa</h1>
+    <p class="lead">Generate a reference tone, start the microphone, and watch your detected pitch relative to the selected swara mapping.</p>
+  </div>
+  <div class="container">
+    <div class="split">
+      <div class="card">
+        <h3>A. Reference Sa generator</h3>
+        <div class="row">
+          <div class="field"><label for="liveSa">Tonic Sa (Hz)</label><input type="number" id="liveSa" data-bind="sa" min="80" max="600" step="0.1"></div>
+          <div class="field"><label for="liveVol">Volume</label><input type="range" id="liveVol" data-bind="volume" min="0" max="1" step="0.01"></div>
+        </div>
+        <div class="field"><label for="liveSaR">Tonic slider (100–500 Hz)</label><input type="range" id="liveSaR" data-bind="sa" min="100" max="500" step="0.5"></div>
+        <div class="field"><label for="liveWave">Timbre</label><select id="liveWave" data-bind="wave"><option value="sine">Sine (pure)</option><option value="triangle">Triangle</option><option value="rich">Harmonic-rich</option></select></div>
+        <p>Selected Sa: <b id="saReadout" style="font-size:1.4rem;font-family:var(--serif)">240.00 Hz</b></p>
+        <div class="btn-row" style="margin-top:0">
+          <button class="btn btn-primary" id="playSa">▶ Play Sa</button>
+          <button class="btn btn-danger" id="stopTone">■ Stop Tone</button>
+        </div>
+        <canvas id="liveScope" class="c-h120" role="img" aria-label="Waveform of the playing tone"></canvas>
+        <p class="hint" id="toneStatus">Tone stopped. Audio starts only after you press Play.</p>
+        <p class="hint">Tip: use headphones while the microphone is on, otherwise the microphone will also pick up the reference tone.</p>
+      </div>
+
+      <div class="card">
+        <h3>B. Live microphone pitch detection</h3>
+        <div class="btn-row" style="margin-top:0">
+          <button class="btn btn-teal" id="micStart">🎙 Start Microphone</button>
+          <button class="btn btn-secondary" id="micStop" disabled>■ Stop Microphone</button>
+        </div>
+        <p class="small" id="micState" aria-live="polite"><b>Microphone:</b> off</p>
+        <div class="bigread"><span id="liveHz">—</span> <small>Hz</small></div>
+        <div class="swread" id="liveSwara">—</div>
+        <div id="liveCents" style="font-size:1.05rem;font-weight:650;min-height:1.6rem"></div>
+        <p style="margin:6px 0"><span class="status none" id="liveStatus" aria-live="polite">Waiting for microphone</span></p>
+        <div class="meter" id="meter" aria-hidden="true"><div class="m-zone" id="mZone"></div><div class="m-tick" style="left:50%"></div><div class="m-needle idle" id="mNeedle"></div></div>
+        <div class="mlabels"><span>−50 ¢ (below)</span><span>target</span><span>+50 ¢ (above)</span></div>
+        <div class="small muted" id="liveMsg" style="margin-top:8px;min-height:2.4em"></div>
+        <div class="row" style="margin-top:10px">
+          <div><label>Detection confidence</label><div class="prog"><i id="confBar"></i></div></div>
+          <div><label>Input level</label><div class="prog lv"><i id="lvlBar"></i></div></div>
+        </div>
+        <canvas id="micScope" class="c-h120" style="margin-top:12px" role="img" aria-label="Microphone waveform"></canvas>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:20px">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><h3 style="margin:0">Pitch trace (last 12 s)</h3><button class="btn btn-secondary btn-sm" id="clearTrace">Clear trace</button></div>
+      <p class="small muted">Vertical axis: cents above/below your Sa, with gridlines at the selected model's swara positions. Gaps mean no reliable pitch.</p>
+      <canvas id="pitchTrace" class="c-h260" role="img" aria-label="Pitch history graph"></canvas>
+    </div>
+
+    <div class="card" style="margin-top:20px" id="droneCard">
+      <h3>Drone-aware mode <span class="badge b-model">Experimental · v2</span></h3>
+      <p class="small">A plain pitch tracker locks onto the loudest periodic sound — with a tanpura running, that is often the drone, not your voice. The drone-aware mode first <i>learns what the drone alone sounds like</i> (calibration), then subtracts that spectrum from what the microphone hears before estimating pitch.</p>
+      <ol class="small"><li>Start a drone: your own tanpura / shruti box, or press <b>Play drone</b> (synthetic Sa–Pa tanpura-like sound at the current Sa). Use the <b>laptop speakers, not headphones</b>, so the microphone can hear it.</li>
+        <li>Stay silent and press <b>Calibrate (3 s)</b>. The microphone turns on if it is off.</li>
+        <li>The algorithm switches to “Drone-aware”. Now sing or hum over the drone and watch the readout.</li>
+        <li>Compare by switching the algorithm menu below to “Improved” or “Baseline” while you sing the same note.</li></ol>
+      <div class="btn-row" style="margin-top:6px"><button class="btn btn-secondary" id="droneOn">▶ Play drone</button><button class="btn btn-secondary" id="droneOff">■ Stop drone</button><button class="btn btn-teal" id="calBtn">◉ Calibrate (3 s)</button><button class="btn btn-secondary" id="calClear">Clear calibration</button></div>
+      <p class="hint" id="calStatus" aria-live="polite">Not calibrated.</p>
+      <div class="callout"><p>Limits: the drone must stay about the same during calibration and singing (same loudness, same microphone position, same Sa). If you change Sa, volume or move the microphone, calibrate again. If your voice is much quieter than the drone, nothing is left after subtraction and the tracker reports no pitch. This is a research prototype whose benefit is being measured in the Simulation Study; it is not claimed to work for every recording.</p></div>
+    </div>
+
+    <div class="card" style="margin-top:20px">
+      <h3>Detector and display settings</h3>
+      <div class="row">
+        <div class="field"><label for="setAlgo">Pitch algorithm</label><select id="setAlgo" data-bind="algo"><option value="improved">Improved: YIN + confidence rejection + smoothing</option><option value="drone">Drone-aware (v2): subtract a calibrated drone, then YIN</option><option value="baseline">Baseline: plain autocorrelation (raw)</option></select></div>
+        <div class="field"><label for="setModel">Swara mapping model</label><select id="setModel" data-bind="model"><option value="et">Equal-tempered approximation</option><option value="ji">Just intonation (simplified)</option><option value="py">Pythagorean</option></select></div>
+        <div class="field"><label for="setTarget">Compare against</label><select id="setTarget" data-bind="target"></select></div>
+        <div class="field"><label for="setTol">"Near target" tolerance (± cents)</label><input type="number" id="setTol" data-bind="tol" min="1" max="50" step="1"><div class="hint">Default ±15 ¢. Configurable; not a rule of correct singing.</div></div>
+        <div class="field"><label for="setRadius">Swara-label radius (± cents)</label><input type="number" id="setRadius" data-bind="radius" min="5" max="60" step="1"><div class="hint">Beyond this the app shows only the measured Hz.</div></div>
+        <div class="field"><label for="setGate">Silence gate: <span id="gateTxt"></span> dBFS</label><input type="range" id="setGate" data-bind="gateDb" min="-70" max="-20" step="1"></div>
+        <div class="field"><label for="setConf">Minimum confidence: <span id="confTxt"></span></label><input type="range" id="setConf" data-bind="minConf" min="0.5" max="0.95" step="0.01"><div class="hint">Improved algorithm only.</div></div>
+      </div>
+      <label><input type="checkbox" id="setProc" data-bind="proc"> Use the browser's echo cancellation / noise suppression / auto-gain (usually <b>off</b> for pitch work; applies next time the microphone starts)</label>
+      <div class="callout" style="margin-top:14px"><p><b>Reading these results honestly.</b> The displayed value is an <i>estimate</i>, not ground truth. Room acoustics, vocal harmonics, background noise, microphone quality and vocal technique (vibrato, gamak, breathiness) all affect readings. A label such as "Ga" means only that the measurement is close to that position in the <i>selected simplified model</i>; it is not a judgement that a different tuning is wrong. If the measurement falls between mapped positions, the app shows the Hz value without forcing a swara name.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================= SHRUTI ============================= -->
+<section class="page" id="page-shruti" aria-label="Explore Shruti">
+  <div class="container pagehead">
+    <p class="eyebrow">Explore Shruti</p>
+    <h1>Compare pitch positions and intervals</h1>
+    <p class="lead">Pick two positions, hear them, and see the frequency ratio and cents interval under different interval models.</p>
+  </div>
+  <div class="container">
+    <div class="card">
+      <p class="small"><span class="badge b-trad">Traditional theory</span> descriptive framework from texts and practice · <span class="badge b-model">Educational model</span> a simplified table implemented here · <span class="badge b-meas">Measured</span> values obtained from your own recordings (see Acoustic Lab). Badges are used throughout to keep these categories separate.</p>
+      <div class="row">
+        <div class="field"><label for="exSa">Tonic Sa (Hz)</label><input type="number" id="exSa" data-bind="sa" min="80" max="600" step="0.1"></div>
+        <div class="field"><label for="exSaR">Adjust Sa</label><input type="range" id="exSaR" data-bind="sa" min="100" max="500" step="0.5"></div>
+        <div class="field"><label for="exModel">Interval model</label><select id="exModel" data-bind="model"><option value="et">Equal-tempered approximation</option><option value="ji">Just intonation (simplified)</option><option value="py">Pythagorean</option></select></div>
+        <div class="field"><label for="exWave">Timbre</label><select id="exWave" data-bind="wave"><option value="sine">Sine</option><option value="triangle">Triangle</option><option value="rich">Harmonic-rich</option></select></div>
+      </div>
+      <div class="row">
+        <div class="field"><label for="exApos">Tone A — position</label><select id="exApos"></select></div>
+        <div class="field"><label for="exAoct">Tone A — octave</label><select id="exAoct"><option value="-1">Mandra (lower)</option><option value="0" selected>Madhya (middle)</option><option value="1">Taar (upper)</option></select></div>
+        <div class="field"><label for="exBpos">Tone B — position</label><select id="exBpos"></select></div>
+        <div class="field"><label for="exBoct">Tone B — octave</label><select id="exBoct"><option value="-1">Mandra (lower)</option><option value="0" selected>Madhya (middle)</option><option value="1">Taar (upper)</option></select></div>
+      </div>
+      <div class="btn-row" style="margin:0">
+        <button class="btn btn-primary btn-sm" id="exPlayA">▶ A</button>
+        <button class="btn btn-primary btn-sm" id="exPlayB">▶ B</button>
+        <button class="btn btn-secondary btn-sm" id="exSeq">▶ A then B</button>
+        <button class="btn btn-secondary btn-sm" id="exTogether">▶ A + B together</button>
+        <button class="btn btn-danger btn-sm" id="exStop">■ Stop</button>
+      </div>
+    </div>
+    <div class="grid g2" style="margin-top:20px">
+      <div class="card"><h3>Interval calculation <span class="badge b-model">Educational model</span></h3><dl class="kv" id="exOut"></dl></div>
+      <div class="card"><h3>Visual comparison</h3>
+        <canvas id="exAxis" class="c-h120" role="img" aria-label="Log-frequency axis showing tones A and B"></canvas>
+        <p class="hint" style="margin-bottom:10px">Log-frequency axis (equal distances = equal ratios). Light ticks mark the 12 positions of the selected model across three octaves.</p>
+        <canvas id="exWaveCv" class="c-h120" role="img" aria-label="Waveforms of tones A, B and their sum"></canvas>
+        <p class="hint">30 ms of A (teal), B (terracotta) and their sum (dark). Computed from the frequencies, not recorded.</p></div>
+    </div>
+
+    <h2 style="margin-top:40px">All twelve positions under three models</h2>
+    <p class="small muted">Differences from 12-TET show why a single table cannot describe every tradition. Frequencies follow your Sa.</p>
+    <div class="tablewrap"><table class="data"><thead><tr><th>Position</th><th>12-TET Hz</th><th>JI ratio</th><th>JI cents</th><th>JI − TET (¢)</th><th>JI Hz</th><th>Pyth. ratio</th><th>Pyth. cents</th><th>Pyth − TET (¢)</th><th>Pyth Hz</th></tr></thead><tbody id="exModelBody"></tbody></table></div>
+
+    <div class="grid g2" style="margin-top:28px">
+      <div class="card"><h3>Frequency-ratio calculator</h3>
+        <div class="row"><div class="field"><label for="calcA">Frequency 1 (Hz)</label><input type="number" id="calcA" value="240" min="1" step="0.01"></div><div class="field"><label for="calcB">Frequency 2 (Hz)</label><input type="number" id="calcB" value="360" min="1" step="0.01"></div></div>
+        <dl class="kv" id="calcOut"></dl></div>
+      <div class="card"><h3>About the 22 shrutis</h3>
+        <p><span class="badge b-trad">Traditional theory</span></p>
+        <p>Classical Indian music theory (for example in the Natyashastra tradition) describes 22 shrutis within an octave. Scholars interpret what those 22 intervals are — their exact sizes, how they map to the swaras, and whether they describe distinct tuned pitches or a framework of possible inflections — in different ways.</p>
+        <p>This website does <b>not</b> assign measured frequencies to 22 shrutis and does not claim any single interpretation is correct. The three models above are simplified educational tools.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================= LAB ============================= -->
+<section class="page" id="page-lab" aria-label="Acoustic Lab">
+  <div class="container pagehead">
+    <p class="eyebrow">Acoustic Lab</p>
+    <h1>Measure pitch stability and decay time</h1>
+    <p class="lead">Experiments that produce real measurements from your own microphone. Nothing is uploaded; export to CSV when you are done.</p>
+  </div>
+  <div class="container">
+    <div class="callout info"><p><b>Privacy:</b> recording starts only when you tick the consent box and press a button; a red bar shows while the microphone is on; you can stop at any time. Audio is analysed in memory and never sent anywhere. Only numerical measurements are kept, until you close the page.</p></div>
+
+    <div class="grid g2">
+      <div class="card">
+        <h3>1. Tone playback</h3>
+        <div class="row">
+          <div class="field"><label for="labToneF">Frequency (Hz)</label><input type="number" id="labToneF" value="240" min="40" max="2000" step="0.1"></div>
+          <div class="field"><label for="labToneD">Duration (s)</label><input type="number" id="labToneD" value="3" min="0.5" max="30" step="0.5"></div>
+          <div class="field"><label for="labToneV">Level</label><input type="range" id="labToneV" data-bind="volume" min="0" max="1" step="0.01"></div>
+        </div>
+        <div class="btn-row" style="margin-top:0"><button class="btn btn-primary btn-sm" id="labTonePlay">▶ Play</button><button class="btn btn-secondary btn-sm" id="labToneSa">Use current Sa</button><button class="btn btn-danger btn-sm" id="labToneStop">■ Stop</button></div>
+        <canvas id="labScope" class="c-h120" role="img" aria-label="Tone waveform"></canvas>
+      </div>
+
+      <div class="card">
+        <h3>2. Pitch recording &amp; stability analysis</h3>
+        <label><input type="checkbox" id="labConsent"> I consent to recording from my microphone for this measurement (processed locally only).</label>
+        <div class="row" style="margin-top:12px">
+          <div class="field"><label for="labDur">Duration (s)</label><input type="number" id="labDur" value="6" min="2" max="60" step="1"></div>
+          <div class="field"><label for="labExp">Expected frequency (Hz, optional)</label><input type="number" id="labExp" min="40" max="1500" step="0.01" placeholder="e.g. 240"></div>
+          <div class="field"><label for="labCond">Condition label</label><input type="text" id="labCond" maxlength="60" placeholder="e.g. vowel 'aa', quiet room"></div>
+        </div>
+        <div class="row">
+          <div class="field"><label for="labNoise">Background noise</label><select id="labNoise"><option>Quiet</option><option>Moderate</option><option>Noisy</option><option>Not recorded</option></select></div>
+          <div class="field"><label for="labRoom">Room / reverberation</label><select id="labRoom"><option>Small furnished room</option><option>Bare room</option><option>Bathroom / hard surfaces</option><option>Hall</option><option>Outdoors</option><option>Not recorded</option></select></div>
+        </div>
+        <label><input type="checkbox" id="labProc"> Browser audio processing on (default off)</label>
+        <div class="btn-row"><button class="btn btn-teal" id="labRec">● Record measurement</button><button class="btn btn-secondary" id="labRecStop" disabled>■ Stop early</button></div>
+        <div class="prog"><i id="labProg"></i></div>
+        <p class="hint" id="labStat" aria-live="polite">Idle. Keep this tab visible while recording. Detector settings are shared with the Live Visualizer.</p>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:20px">
+      <h3>Frequency &amp; amplitude visualisation <span class="badge b-meas">Measured</span></h3>
+      <canvas id="labPitchChart" class="c-h220" role="img" aria-label="Pitch deviation over time for the latest recording"></canvas>
+      <div class="legend"><span><i style="background:#2f7f7a"></i>Improved estimator</span><span><i style="background:#a8472f"></i>Baseline estimator</span></div>
+      <canvas id="labAmpChart" class="c-h120" style="margin-top:10px" role="img" aria-label="Input level over time"></canvas>
+    </div>
+
+    <div class="card" style="margin-top:20px">
+      <h3>Pitch-stability comparison across runs <span class="badge b-meas">Measured</span></h3>
+      <p class="small muted">Each line is one run (improved estimator), shown as cents relative to that run's own median pitch, so flatter lines are more stable.</p>
+      <canvas id="labCompare" class="c-h200" role="img" aria-label="Overlay of pitch traces from all runs"></canvas>
+      <div class="legend" id="labCompareLegend"></div>
+    </div>
+
+    <div class="card" style="margin-top:20px">
+      <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center"><h3 style="margin:0">Pitch measurement results</h3><div><button class="btn btn-secondary btn-sm" id="labExport">⬇ Export CSV</button> <button class="btn btn-secondary btn-sm" id="labClear">Clear</button></div></div>
+      <div class="tablewrap" style="margin-top:12px"><table class="data"><thead><tr><th>Run</th><th>Algorithm</th><th>Condition</th><th>Noise</th><th>Room</th><th>Voiced %</th><th>Median Hz</th><th>SD (¢)</th><th>Jumps &gt;100¢</th><th>Octave jumps</th><th>Error vs expected (¢)</th><th>Mean level dBFS</th></tr></thead><tbody id="labBody"></tbody></table></div>
+    </div>
+
+    <div class="card" style="margin-top:20px">
+      <h3>3. Reverberation (decay-time) experiment</h3>
+      <p>Method: the app plays a short white-noise burst through your speakers, records the room with your microphone, then estimates the decay slope after the burst ends (a T20-style fit: −5 dB to −25 dB, extrapolated to −60 dB). This follows the idea of the <i>interrupted-noise</i> method used in room acoustics.</p>
+      <div class="callout warn"><p><b>Not calibrated.</b> Laptop speakers, microphone response, distance, level and background noise all bias the result. The value is an <i>uncalibrated estimate</i> useful for comparing conditions on the same equipment; it must not be presented as the true reverberation time of a room or temple. If the signal does not exceed the noise floor by at least 35 dB, the app reports "not measurable" instead of a number.</p></div>
+      <label><input type="checkbox" id="revConsent"> I consent to microphone recording and to playing a loud noise burst through my speakers.</label>
+      <div class="row" style="margin-top:12px">
+        <div class="field"><label for="revBurst">Burst length (s)</label><input type="number" id="revBurst" value="1" min="0.3" max="3" step="0.1"></div>
+        <div class="field"><label for="revTail">Recording after burst (s)</label><input type="number" id="revTail" value="3" min="1" max="8" step="0.5"></div>
+        <div class="field"><label for="revLevel">Playback level</label><input type="range" id="revLevel" min="0.05" max="0.8" step="0.01" value="0.3"><div class="hint">Start low. Pre-roll noise floor is measured for 1.2 s first.</div></div>
+        <div class="field"><label for="revLabel">Label</label><input type="text" id="revLabel" maxlength="60" placeholder="e.g. bedroom, mic 1 m"></div>
+      </div>
+      <div class="btn-row" style="margin-top:0"><button class="btn btn-teal" id="revRun">● Run experiment</button><button class="btn btn-secondary" id="revStop" disabled>■ Abort</button><button class="btn btn-secondary" id="revSelf">Run estimator self-check (synthetic)</button></div>
+      <p class="hint" id="revStatus" aria-live="polite">Idle.</p>
+      <canvas id="revChart" class="c-h200" role="img" aria-label="Decay curve of the latest reverberation measurement"></canvas>
+      <div style="display:flex;justify-content:space-between;margin-top:16px;gap:8px;flex-wrap:wrap"><h4 style="margin:0">Decay-time results</h4><div><button class="btn btn-secondary btn-sm" id="revExport">⬇ Export CSV</button> <button class="btn btn-secondary btn-sm" id="revClear">Clear</button></div></div>
+      <div class="tablewrap" style="margin-top:8px"><table class="data"><thead><tr><th>ID</th><th>Source</th><th>Label</th><th>Known RT60 (s)</th><th>Estimated RT60 (s)</th><th>Error %</th><th>Noise floor dBFS</th><th>Signal dBFS</th><th>Dyn. range dB</th><th>Fit R²</th><th>Status</th></tr></thead><tbody id="revBody"></tbody></table></div>
+      <p class="hint">"Synthetic" rows come from computer-generated decays with a known RT60 and only validate the estimator's arithmetic, not any real room.</p>
+    </div>
+
+    <h2 style="margin-top:40px">Concepts: what is being measured?</h2>
+    <div class="grid g3">
+      <div class="card"><h4>Pitch accuracy</h4><p>How close an estimate is to a reference value (ground truth), e.g. error in cents. It can only be computed when a trustworthy reference exists, such as a generated tone.</p></div>
+      <div class="card"><h4>Pitch stability</h4><p>How much the estimate fluctuates over time for a nominally steady tone (standard deviation in cents). A very stable estimate can still be inaccurate, and a singer's natural vibrato appears as instability.</p></div>
+      <div class="card"><h4>Noise</h4><p>Unwanted sound (fans, traffic, electronics). It lowers the signal-to-noise ratio and can cause missed or wrong detections.</p></div>
+      <div class="card"><h4>Reverberation</h4><p>Persistence of sound after the source stops, due to reflections. Summarised by decay time such as RT60. Reverb smears successive notes and can blur pitch estimates.</p></div>
+      <div class="card"><h4>Room acoustics</h4><p>The overall effect of room size, shape and materials: reverberation, echoes, resonant modes and background noise. Measuring a specific space such as a temple would need calibrated equipment and validation, which this prototype does not claim.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================= SIMULATION STUDY (v2) ============================= -->
+<section class="page" id="page-study" aria-label="Simulation Study">
+  <div class="container pagehead">
+    <p class="eyebrow">Simulation Study · Version 2</p>
+    <h1>Drone, noise and room: a controlled pitch-tracker comparison</h1>
+    <p class="lead">Generates a sung melody with a known true pitch, mixes in a tanpura-like drone, background noise and a simulated room, and scores four pitch trackers against the truth. Everything is seeded, so the same settings reproduce the same numbers.</p>
+  </div>
+  <div class="container">
+    <div class="callout warn"><p><b>Scope.</b> This is a <i>computer-simulated</i> study. The "voice" is a synthetic harmonic source, the "drone" is a synthetic plucked-string model and the "room" is a random exponentially-decaying impulse response. Results show how the <i>algorithms</i> behave under those assumptions. They are <b>not</b> evidence about real singers, real tanpuras or real rooms — that requires recordings (Acoustic Lab, Live Visualizer drone mode, or the exported audio files). No result is stored in this page: every number you see comes from the run you start below.</p></div>
+
+    <div class="grid g3">
+      <div class="card"><span class="badge b-model">H1 · inherited from v1</span><h4 style="margin-top:8px">Smoothing + confidence rejection</h4><p class="small">The improved v1 pipeline (YIN, confidence rejection, smoothing) has higher raw pitch accuracy or fewer unstable detections than the baseline autocorrelation, under selected conditions.</p></div>
+      <div class="card"><span class="badge b-model">H2 · new</span><h4 style="margin-top:8px">Drone-aware front end</h4><p class="small">When a drone sounds together with the voice, subtracting a <i>calibrated drone spectrum</i> before pitch estimation raises raw pitch accuracy and lowers drone false alarms compared with the improved v1 pipeline.</p></div>
+      <div class="card"><span class="badge b-model">H3 · new</span><h4 style="margin-top:8px">Room-adaptive settings</h4><p class="small">Setting smoothing and confidence from the measured decay time (interrupted-noise method) improves accuracy in reverberant rooms compared with fixed settings.</p></div>
+    </div>
+    <p class="fineprint">Each is a hypothesis to test; any of them can be rejected. Null hypotheses: no difference between the two methods being compared.</p>
+
+    <div class="card" style="margin-top:20px">
+      <h3>1. Configure the experiment</h3>
+      <div class="btn-row" style="margin:0 0 12px"><button class="btn btn-secondary btn-sm" id="stPreQuick">Preset: Quick (≈ 30 s)</button><button class="btn btn-secondary btn-sm" id="stPreStd">Preset: Standard (≈ 3–5 min)</button></div>
+      <div class="row">
+        <div class="field"><label for="stSa">Sa of the singer (Hz)</label><input type="number" id="stSa" value="200" min="100" max="400" step="1"></div>
+        <div class="field"><label for="stSr">Simulation sample rate</label><select id="stSr"><option value="16000" selected>16 000 Hz (frame 128 ms)</option><option value="8000">8 000 Hz (faster; frame 128 ms)</option></select></div>
+        <div class="field"><label for="stSeeds">Random seeds</label><input type="text" id="stSeeds" value="101, 102, 103"><div class="hint">Settings were tuned on seeds 1 and 2; use other seeds for evaluation.</div></div>
+        <div class="field"><label for="stVib">Vibrato depth (± cents)</label><input type="number" id="stVib" value="15" min="0" max="100" step="1"></div>
+        <div class="field"><label for="stCal">Drone calibration length (s)</label><input type="number" id="stCal" value="3" min="1" max="10" step="1"></div>
+        <div class="field"><label for="stDrr">Direct-to-reverberant energy (dB)</label><input type="number" id="stDrr" value="0" min="-10" max="20" step="1"><div class="hint">0 dB: tail energy equals direct energy.</div></div>
+      </div>
+      <fieldset style="border:1px solid var(--line);border-radius:12px;margin:8px 0;padding:10px 14px"><legend><b>Drone level</b> (voice vs drone loudness)</legend>
+        <label style="display:inline-block;margin-right:14px"><input type="checkbox" class="stVdr" value="none" checked> No drone</label>
+        <label style="display:inline-block;margin-right:14px"><input type="checkbox" class="stVdr" value="6" checked> Voice +6 dB</label>
+        <label style="display:inline-block;margin-right:14px"><input type="checkbox" class="stVdr" value="0" checked> Equal (0 dB)</label>
+        <label style="display:inline-block;margin-right:14px"><input type="checkbox" class="stVdr" value="-3" checked> Voice −3 dB</label>
+        <label style="display:inline-block"><input type="checkbox" class="stVdr" value="-6"> Voice −6 dB</label></fieldset>
+      <fieldset style="border:1px solid var(--line);border-radius:12px;margin:8px 0;padding:10px 14px"><legend><b>Background noise</b> (white, SNR vs the dry voice)</legend>
+        <label style="display:inline-block;margin-right:14px"><input type="checkbox" class="stSnr" value="none" checked> None</label>
+        <label style="display:inline-block;margin-right:14px"><input type="checkbox" class="stSnr" value="20" checked> SNR 20 dB</label>
+        <label style="display:inline-block"><input type="checkbox" class="stSnr" value="10" checked> SNR 10 dB</label></fieldset>
+      <fieldset style="border:1px solid var(--line);border-radius:12px;margin:8px 0;padding:10px 14px"><legend><b>Room decay time</b> (RT60)</legend>
+        <label style="display:inline-block;margin-right:14px"><input type="checkbox" class="stRt" value="0" checked> Dry (none)</label>
+        <label style="display:inline-block;margin-right:14px"><input type="checkbox" class="stRt" value="0.6" checked> 0.6 s</label>
+        <label style="display:inline-block"><input type="checkbox" class="stRt" value="1.5" checked> 1.5 s</label></fieldset>
+      <fieldset style="border:1px solid var(--line);border-radius:12px;margin:8px 0;padding:10px 14px"><legend><b>Methods to compare</b></legend>
+        <label style="display:inline-block;margin-right:14px"><input type="checkbox" class="stMeth" value="baseline" checked> Baseline (autocorrelation)</label>
+        <label style="display:inline-block;margin-right:14px"><input type="checkbox" class="stMeth" value="improved" checked> Improved v1 (YIN + smoothing)</label>
+        <label style="display:inline-block;margin-right:14px"><input type="checkbox" class="stMeth" value="drone" checked> Drone-aware</label>
+        <label style="display:inline-block"><input type="checkbox" class="stMeth" value="drone_room" checked> Drone-aware + room-adaptive</label></fieldset>
+      <details><summary>Tracker settings (shared by all methods)</summary>
+        <div class="row" style="margin-top:10px">
+          <div class="field"><label for="stAlpha">Drone over-subtraction α</label><input type="number" id="stAlpha" value="3" min="0.5" max="6" step="0.1"></div>
+          <div class="field"><label for="stBeta">Spectral floor β</label><input type="number" id="stBeta" value="0.05" min="0" max="0.5" step="0.01"></div>
+          <div class="field"><label for="stMinRes">Min. residual vs drone power</label><input type="number" id="stMinRes" value="0.1" min="0" max="2" step="0.05"><div class="hint">Below this, "nothing left after removing the drone" → no voice.</div></div>
+          <div class="field"><label for="stMinConf">Min. confidence</label><input type="number" id="stMinConf" value="0.8" min="0.5" max="0.95" step="0.01"></div>
+          <div class="field"><label for="stGate">Silence gate (dBFS)</label><input type="number" id="stGate" value="-45" min="-70" max="-20" step="1"></div>
+        </div></details>
+      <div class="btn-row"><button class="btn btn-primary" id="stRun">▶ Run simulation</button><button class="btn btn-danger" id="stAbort" disabled>■ Abort</button></div>
+      <div class="prog"><i id="stProg"></i></div>
+      <p class="hint" id="stStatus" aria-live="polite">Idle. The browser stays usable but may feel slow while a run is in progress.</p>
+    </div>
+
+    <div class="card" style="margin-top:20px">
+      <h3>How the scoring works</h3>
+      <ul class="small">
+        <li><b>Frame truth:</b> a frame counts as <i>voiced</i> if ≥ 90% of its samples fall inside a sung note, and as a <i>rest</i> if ≤ 10%. Frames in between (note edges) are ignored. The true pitch of a voiced frame is the mean true pitch inside it (glides and vibrato included).</li>
+        <li><b>Raw pitch accuracy (RPA):</b> share of voiced frames whose estimate is within 50 cents (RPA50) or 20 cents (RPA20) of the truth. A missing estimate counts as a miss — the usual convention for melody-extraction evaluation.</li>
+        <li><b>Drone false alarm:</b> share of <i>rest</i> frames in which the tracker still reports a pitch (for a plain tracker this is usually the drone itself, or the reverberant tail).</li>
+        <li><b>Octave errors:</b> voiced frames whose estimate is off by about one or more octaves. <b>Median |error|</b> is taken over frames where a pitch was reported.</li>
+        <li>Metrics are fractions of frames in 7.3 s of melody (six notes and two rests). Detailed rows are exportable; use the Python scripts for formal statistics.</li>
+      </ul>
+    </div>
+
+    <div id="stResults" hidden>
+      <div class="card" style="margin-top:20px"><h3>2. Summary by method (pooled over all selected conditions)</h3>
+        <p class="small muted">Pooled means depend on which conditions you selected. Read the breakdown below before drawing any conclusion.</p>
+        <div class="tablewrap"><table class="data"><thead><tr><th>Method</th><th>RPA50 (%)</th><th>RPA20 (%)</th><th>Reported (%)</th><th>False alarm in rests (%)</th><th>Octave errors (%)</th><th>Median |error| (¢)</th><th>Runs</th></tr></thead><tbody id="stSumBody"></tbody></table></div></div>
+
+      <div class="card" style="margin-top:20px"><h3>3. Breakdown by condition</h3>
+        <div class="field" style="max-width:480px"><label for="stMetric">Metric</label><select id="stMetric"><option value="rpa50">Raw pitch accuracy ±50 ¢ (%) — higher is better</option><option value="rpa20">Raw pitch accuracy ±20 ¢ (%) — higher is better</option><option value="recallPct">Frames with a reported pitch (%)</option><option value="falseAlarmPct">False alarms in rests (%) — lower is better</option><option value="octaveErrPct">Octave errors (%) — lower is better</option><option value="medAbsErrCents">Median |error| (¢) — lower is better</option></select></div>
+        <div id="stBreak"></div>
+        <h4 style="margin-top:18px">Raw pitch accuracy (±50 ¢) by drone level</h4>
+        <canvas id="stChart" class="c-h220" role="img" aria-label="Grouped bar chart of raw pitch accuracy by drone level and method"></canvas>
+        <div class="legend" id="stLegend"></div></div>
+
+      <div class="card" style="margin-top:20px"><h3>4. Paired comparisons for the hypotheses</h3>
+        <p class="small muted">Each pair compares two methods on the <i>same</i> simulated recording. "Win/loss" means a difference larger than 1 percentage point in RPA50. These are descriptive counts. A proper test (Wilcoxon signed-rank with effect size and bootstrap interval) is in <code>analyze_results.py</code>.</p>
+        <div class="tablewrap"><table class="data"><thead><tr><th>Hypothesis</th><th>Comparison (A vs B)</th><th>Subset</th><th>Pairs</th><th>Mean RPA50 diff (A−B)</th><th>Median diff</th><th>A wins</th><th>B wins</th><th>Ties</th><th>Mean false-alarm diff (A−B)</th></tr></thead><tbody id="stPairBody"></tbody></table></div></div>
+
+      <div class="card" style="margin-top:20px">
+        <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center"><h3 style="margin:0">5. Detailed results</h3><div><button class="btn btn-secondary btn-sm" id="stExport">⬇ Export CSV</button> <button class="btn btn-secondary btn-sm" id="stClear">Clear</button></div></div>
+        <div class="tablewrap" style="margin-top:12px"><table class="data"><thead><tr><th>Run</th><th>Seed</th><th>Drone</th><th>Noise</th><th>RT60</th><th>Method</th><th>RPA50</th><th>RPA20</th><th>Reported %</th><th>Octave %</th><th>Med |err| ¢</th><th>False alarm %</th></tr></thead><tbody id="stBody"></tbody></table></div>
+        <p class="hint">The CSV holds every setting, the algorithm version and the simulator version, so a run can be reproduced exactly.</p>
+      </div>
+
+      <div class="card" style="margin-top:20px"><h3>6. Export one condition for external tools</h3>
+        <p class="small">Downloads (a) the simulated audio as WAV, (b) the ground-truth pitch every 10 ms, and (c) the pitch tracks of all selected methods. Run any other tracker (for example pYIN) on the WAV and score everything with <code>score_tracks.py</code>. Chrome may ask to allow multiple downloads — choose Allow.</p>
+        <div class="row"><div class="field"><label for="stCondSel">Condition</label><select id="stCondSel"></select></div></div>
+        <div class="btn-row" style="margin-top:0"><button class="btn btn-secondary" id="stWav">⬇ Download WAV + truth + tracks</button></div>
+      </div>
+
+      <div class="card" style="margin-top:20px"><h3>Settings record (for reproducibility)</h3><pre class="code" id="stCfgJson"></pre></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================= RESEARCH ============================= -->
+<section class="page" id="page-research" aria-label="Research and Experiments">
+  <div class="container pagehead">
+    <p class="eyebrow">Research &amp; Experiments</p>
+    <h1>A testable study of browser-based pitch estimation</h1>
+    <p class="lead">This page describes a study design. It contains no results: any numbers must come from your own measurements in the <a href="#lab">Acoustic Lab</a> and <a href="#tests">Validation Tests</a>.</p>
+  </div>
+  <div class="container">
+    <div class="grid g2">
+      <div class="card"><h3>Research motivation</h3><p>Students and teachers increasingly use phone and laptop apps to check pitch while practising. Indian classical music values microtonal nuance and sustained tones, yet it is rarely documented how dependable a lightweight in-browser estimator is for such tones, and how room and noise conditions change that dependability.</p></div>
+      <div class="card"><h3>Problem statement</h3><p>Simple pitch estimators can jump by octaves, report values during silence, or fluctuate under noise and reverberation. Without measuring these failure modes, an on-screen reading may mislead learners.</p></div>
+    </div>
+    <div class="card" style="margin-top:20px"><h3>Research question</h3><p class="lead" style="margin:0">How reliably can a browser-based pitch estimator measure sustained vocal tones, and how do background noise and room reverberation affect its accuracy and stability?</p></div>
+    <div class="card" style="margin-top:20px"><h3>Testable hypothesis (to be tested, not an established result)</h3><p>An improved pitch-estimation pipeline combining confidence-based rejection and temporal smoothing will reduce pitch-estimation errors or unstable detections compared with a baseline estimator under selected recording conditions.</p>
+      <p class="small muted"><b>Null hypothesis:</b> there is no difference in error or instability between the two pipelines under those conditions. The hypothesis could be supported, partly supported, or rejected.</p></div>
+    <div class="card" style="margin-top:20px"><h3>Additional hypotheses added in version 2 (to be tested)</h3>
+      <p><b>H2 — drone-aware front end.</b> When a drone sounds together with the voice, estimating pitch after subtracting a calibrated drone spectrum gives higher raw pitch accuracy and fewer drone false alarms than the improved v1 pipeline. <span class="small muted">Null: no difference.</span></p>
+      <p><b>H3 — room-adaptive settings.</b> Choosing smoothing and confidence settings from a measured decay time improves accuracy in reverberant rooms compared with fixed settings. <span class="small muted">Null: no difference.</span></p>
+      <p class="small muted">Where to test: <a href="#study">Simulation Study</a> (known ground truth, seeded), then real recordings (Live Visualizer drone mode, Acoustic Lab) and the exported WAV files with an external tracker. Simulation results do not transfer automatically to real singing; they only tell you which ideas deserve a real-recording experiment. Both H2 and H3 can be rejected, and a rejected hypothesis is still a valid result to report.</p></div>
+
+    <div class="grid g3" style="margin-top:20px">
+      <div class="card"><h4>Independent variables</h4><ul><li>Estimator: baseline vs. improved</li><li>Background-noise condition (quiet / moderate / noisy)</li><li>Room condition (e.g. small furnished room / hard-surfaced room)</li><li>Signal type: generated tone vs. sustained vocal tone</li><li>Fundamental frequency (e.g. Sa at different tonics)</li></ul></div>
+      <div class="card"><h4>Dependent variables</h4><ul><li>Cents error vs. reference (when a reference exists)</li><li>Pitch stability: SD of cents over a sustained tone</li><li>Voiced fraction (detections per frame)</li><li>Jumps &gt;100 ¢ and octave jumps per recording</li><li>Estimated decay time (uncalibrated) as a covariate</li></ul></div>
+      <div class="card"><h4>Controlled variables</h4><ul><li>Same laptop, microphone and browser</li><li>Fixed microphone distance and position</li><li>Browser audio processing off</li><li>Same frame size, sample rate, gate and settings (record algorithm version <code>shruti-pitch/1.0.0</code>)</li><li>Same vowel and vocal effort; same duration</li></ul></div>
+    </div>
+
+    <div class="grid g2" style="margin-top:20px">
+      <div class="card"><h3>Experiments</h3>
+        <ol>
+          <li><b>Clean generated tones</b> at known frequencies → accuracy upper bound of the algorithm (see <a href="#tests">Validation Tests</a>). Synthetic tests are not evidence of real-world microphone accuracy.</li>
+          <li><b>Recorded sustained vocal tones</b> (e.g. 5–10 s on a vowel) → stability, jumps, voiced fraction.</li>
+          <li><b>Repeated measurements of the same source</b> (≥10 repetitions) → repeatability.</li>
+          <li><b>Different background-noise conditions</b> (quiet vs. fan/traffic playback at fixed loudness).</li>
+          <li><b>Different room conditions</b> where feasible, with the decay-time estimate recorded for each.</li>
+        </ol></div>
+      <div class="card"><h3>Experimental procedure</h3>
+        <ol>
+          <li>Fix the setup (device, distance, settings) and note them in the label field.</li>
+          <li>Run the synthetic tests; export the CSV with the algorithm version and seed.</li>
+          <li>For each condition, record sustained tones in the Acoustic Lab (consent box, fixed duration). Record the expected frequency only when a reference exists (e.g. matching a played tone).</li>
+          <li>Run the decay-time experiment in each room, three times, and record the results.</li>
+          <li>Export both CSV files after each session; do not edit raw rows.</li>
+        </ol></div>
+    </div>
+
+    <div class="grid g2" style="margin-top:20px">
+      <div class="card"><h3>Baseline method</h3><p>Plain autocorrelation: the first autocorrelation peak reaching 90% of the maximum within the lag range 1/1000 s – 1/70 s, integer-lag resolution, no confidence rejection, no smoothing (the same silence gate is applied to both methods so the comparison isolates the pitch logic).</p></div>
+      <div class="card"><h3>Proposed improvement</h3><p>YIN-style cumulative-mean-normalised difference function (de Cheveigné &amp; Kawahara, 2002) with parabolic interpolation, a minimum-confidence requirement, suspension of sudden &gt;600 ¢ jumps until confirmed on consecutive frames (octave-error guard), a short median filter and log-domain exponential smoothing.</p></div>
+    </div>
+
+    <div class="grid g2" style="margin-top:20px">
+      <div class="card"><h3>Data-collection methodology</h3><ul>
+        <li>All measurements are produced by this application and exported as CSV (one row per run per algorithm).</li>
+        <li>Each row stores timestamp, algorithm version, settings, condition labels and statistics.</li>
+        <li>Human vocal tones have no built-in ground truth. Options: ask the participant to match a generated reference tone; or compare estimators against each other and against an independent offline analysis (a limitation to state explicitly).</li>
+        <li>Obtain consent from any participant; no audio is stored or transmitted.</li></ul></div>
+      <div class="card"><h3>Planned statistical analysis</h3><ul>
+        <li>Descriptive statistics per condition: median, mean, SD, IQR of cents error and stability.</li>
+        <li>Paired comparison of baseline vs. improved on the <i>same</i> recordings: Wilcoxon signed-rank test (distributions are unlikely to be normal), with effect size.</li>
+        <li>Bootstrap confidence intervals for median differences.</li>
+        <li>Condition effects (noise, room): non-parametric or mixed-effects models, with correction for multiple comparisons.</li>
+        <li>Report all conditions, including those where the hypothesis fails.</li></ul></div>
+    </div>
+
+    <div class="card" style="margin-top:20px"><h3>Limitations</h3><ul>
+      <li>Single-device, single-browser measurements do not generalise to other microphones or rooms.</li>
+      <li>Autocorrelation/YIN-type methods assume one dominant periodic source; they are not designed for polyphonic audio (e.g. voice with a loud tanpura).</li>
+      <li>Rapid gamak and meend, vibrato and breathiness make "the" pitch ill-defined; stability SD then reflects the music, not only the error.</li>
+      <li>The decay-time estimate is uncalibrated and depends on speaker, microphone and noise.</li>
+      <li>12-TET, just intonation and Pythagorean tables are simplified models; they do not settle debates about shruti.</li></ul></div>
+
+    <div class="callout warn" id="contrib"><h3>Potential Technical Contribution — Pending Validation</h3>
+      <p>The pipeline combines components that are individually well known (YIN, confidence thresholds, median filtering, smoothing). Any genuine novelty, if it exists at all, would have to come from a specific combination, a specific adaptation to sustained Indian vocal practice, or a specific evaluation protocol — and that is <b>not established</b>.</p>
+      <p><b>Candidate (version 2):</b> subtracting a <i>calibrated drone spectrum</i> before YIN-style pitch estimation, for sustained Indian vocal music, evaluated under drone, noise and reverberation. The individual ingredients (spectral subtraction, noise profiles, YIN) are well known, and the Indian-music literature already studies drone-related issues such as tonic identification and predominant-melody extraction, so overlap with existing work is likely. Whether any combination is new is unknown.</p>
+      <p><b>Read first and search around (verify each source yourself):</b> <a href="https://qmro.qmul.ac.uk/xmlui/handle/123456789/6040" target="_blank" rel="noopener">pYIN — probabilistic threshold distributions for F0 estimation</a> · <a href="https://repositori.upf.edu/items/573ae738-e42e-441a-9323-cd37b1de0d83/full" target="_blank" rel="noopener">Automatic tonic identification in Indian art music: approaches and evaluation</a> · <a href="https://repositori.upf.edu/items/88e020e1-2167-4e75-87bf-240b4b2ef094" target="_blank" rel="noopener">A two-stage approach for tonic identification in Indian art music</a>. Suggested search terms: “drone suppression”, “tanpura”, “pitch tracking Hindustani”, “predominant melody extraction accompaniment”, “spectral subtraction fundamental frequency”, “noise-robust pitch estimation calibration”.</p>
+      <p>No prior-art search has been performed by this tool. <b>No novelty, patentability or performance-superiority claim is made.</b> Establishing novelty and patentability requires a separate, systematic prior-art search and professional (patent attorney / supervisor) assessment, and the hypothesis above must first be tested with real data.</p></div>
+  </div>
+</section>
+
+<!-- ============================= TESTS ============================= -->
+<section class="page" id="page-tests" aria-label="Validation Tests">
+  <div class="container pagehead">
+    <p class="eyebrow">Functional validation</p>
+    <h1>Synthetic-tone tests</h1>
+    <p class="lead">Feeds computer-generated tones of known frequency into both estimators and compares expected vs. detected values. Seeded, so the same settings reproduce the same numbers.</p>
+  </div>
+  <div class="container">
+    <div class="callout warn"><p><b>Scope:</b> these tests use digitally generated signals and no microphone or room. Passing them shows that the algorithm implementation is arithmetically sound; it is <b>not evidence of real-world microphone accuracy</b>. Real-microphone results belong in the Acoustic Lab.</p></div>
+    <div class="card">
+      <div class="row">
+        <div class="field"><label for="tFreqs">Test frequencies (Hz, comma-separated)</label><input type="text" id="tFreqs" value="110, 146.83, 220, 240, 261.63, 330, 440, 523.25, 880"><div class="hint">Allowed range 80–900 Hz.</div></div>
+        <div class="field"><label for="tSr">Sample rate (Hz)</label><select id="tSr"><option>44100</option><option selected>48000</option></select></div>
+        <div class="field"><label for="tFrame">Analysis frame (samples)</label><select id="tFrame"><option>2048</option><option selected>4096</option><option>8192</option></select></div>
+        <div class="field"><label for="tDur">Duration per tone (s)</label><input type="number" id="tDur" value="1.5" min="0.5" max="5" step="0.5"></div>
+        <div class="field"><label for="tSignal">Signal</label><select id="tSignal"><option value="sine">Pure sine</option><option value="harm">Harmonic-rich (6 harmonics)</option></select></div>
+        <div class="field"><label for="tSnr">Added white noise</label><select id="tSnr"><option value="none">None (clean)</option><option value="30">SNR 30 dB</option><option value="20">SNR 20 dB</option><option value="10">SNR 10 dB</option></select></div>
+        <div class="field"><label for="tSeed">Noise seed (integer)</label><input type="number" id="tSeed" value="12345" step="1"></div>
+        <div class="field"><label for="tAlgo">Algorithms</label><select id="tAlgo"><option value="both">Baseline and improved</option><option value="baseline">Baseline only</option><option value="improved">Improved only</option></select></div>
+        <div class="field"><label for="tMinConf">Improved: min confidence</label><input type="number" id="tMinConf" value="0.8" min="0.5" max="0.95" step="0.01"></div>
+        <div class="field"><label for="tThr">Pass: |error| ≤ (cents)</label><input type="number" id="tThr" value="5" min="0.5" max="100" step="0.5"></div>
+        <div class="field"><label for="tVoiced">Pass: voiced frames ≥ (%)</label><input type="number" id="tVoiced" value="90" min="1" max="100" step="1"></div>
+      </div>
+      <p class="small muted"><b>Documented pass criteria:</b> a test passes when the median detected frequency is within the chosen cents tolerance of the true frequency <i>and</i> at least the chosen percentage of frames produced a voiced estimate. The default 5 ¢ (≈0.29%) is a stringent engineering tolerance for clean synthetic tones, chosen for this project; it is not a perceptual or musical standard and is configurable.</p>
+      <div class="btn-row"><button class="btn btn-primary" id="tRun">▶ Run tests</button><button class="btn btn-secondary" id="tExport" disabled>⬇ Export CSV</button><button class="btn btn-secondary" id="tReset">Reset defaults</button></div>
+      <div class="prog"><i id="tProg"></i></div>
+    </div>
+    <div class="card" style="margin-top:20px"><h3>Settings record (for reproducibility)</h3><pre class="code" id="tSettings"></pre></div>
+    <div class="card" style="margin-top:20px"><h3>Summary</h3><div id="tSummary" class="muted">No tests run yet.</div>
+      <div class="tablewrap" style="margin-top:12px"><table class="data"><thead><tr><th>#</th><th>Algorithm</th><th>Expected Hz</th><th>Detected Hz</th><th>Error Hz</th><th>Relative error %</th><th>Cents error</th><th>Voiced %</th><th>Result</th></tr></thead><tbody id="tBody"></tbody></table></div></div>
+  </div>
+</section>
+
+<!-- ============================= ABOUT ============================= -->
+<section class="page" id="page-about" aria-label="About the project">
+  <div class="container pagehead">
+    <p class="eyebrow">About the project</p>
+    <h1>Indian Classical Music Shruti Visualizer</h1>
+    <p class="lead">Exploring Swaras, Pitch Accuracy, and Acoustic Effects — an Indian Knowledge System (IKS) student research project.</p>
+  </div>
+  <div class="container">
+    <div class="grid g2">
+      <div class="card"><h3>Indian Knowledge System domain</h3><p>Indian music theory (swara, shruti, raga, tala) — a knowledge tradition with a long history of describing sound in terms of relationships. This project connects that vocabulary to modern, measurable audio analysis.</p>
+        <h3>Connection to modern audio analysis</h3><p>A sung swara is a pitch relationship; digitally it is a fundamental frequency that can be estimated, compared with a reference, and tracked over time. Signal processing helps quantify what learners and teachers hear, while recognising what such measurements cannot capture.</p></div>
+      <div class="card"><h3>Intended users</h3><ul><li>Students learning swaras</li><li>Beginners practising pitch with a reference Sa</li><li>Music learners and teachers</li><li>Researchers needing a transparent, reproducible baseline tool</li></ul>
+        <h3>Technology stack</h3><p>HTML5, CSS3, plain JavaScript (ES2020), Web Audio API (<code>OscillatorNode</code>, <code>AnalyserNode</code>, <code>MediaStreamSource</code>), Canvas 2D. A single file, with no frameworks, no backend and no network requests.</p></div>
+      <div class="card"><h3>Current working features</h3><ul><li>Swara frequency mapping under three documented models</li><li>Reference-tone generator and swara sequences</li><li>Live microphone pitch detection: YIN-based pipeline + autocorrelation baseline</li><li>Cents deviation, target comparison, pitch trace</li><li>Interval explorer and ratio calculator</li><li>Pitch-stability recording, decay-time estimate, CSV export</li><li>Seeded synthetic validation tests</li><li>Version 2: drone-aware tracking and a seeded drone/noise/room simulation study with external-tool export</li></ul></div>
+      <div class="card"><h3>Known limitations</h3><ul><li>Monophonic voice/instrument only; a loud drone will disturb detection.</li><li>Equal-tempered and other tables are simplified models; no claim to define shruti.</li><li>Accuracy depends on microphone, room and noise; estimates are not ground truth.</li><li>Decay-time estimate is uncalibrated.</li><li>No raga-aware analysis and no per-swara adaptive tuning.</li></ul>
+        <h3>Future research directions</h3><ul><li>Controlled study of baseline vs. improved estimators on real recordings</li><li>Reference-assisted measurement with independent hardware tuners</li><li>Drone-tolerant and gamak-aware analysis</li><li>Calibrated room-acoustics measurement for temples and halls</li><li>Prior-art review before making any novelty claim</li></ul></div>
+    </div>
+    <div class="callout"><p>This is a student project. It has <b>no official endorsement</b> from any institution, and the YIN algorithm cited here is the work of de Cheveigné &amp; Kawahara (2002), "YIN, a fundamental frequency estimator for speech and music", J. Acoust. Soc. Am.</p></div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="container fgrid">
+    <div><h4>Shruti Lab</h4><p>Indian Classical Music Shruti Visualizer — an Indian Knowledge System research prototype. Runs locally in your browser; no audio is uploaded. Not endorsed by any institution.</p></div>
+    <div><h4>Explore</h4><ul><li><a href="#home">Home</a></li><li><a href="#learn">Learn Swaras</a></li><li><a href="#live">Live Visualizer</a></li><li><a href="#shruti">Explore Shruti</a></li></ul></div>
+    <div><h4>Research</h4><ul><li><a href="#lab">Acoustic Lab</a></li><li><a href="#study">Simulation study (v2)</a></li><li><a href="#research">Research design</a></li><li><a href="#tests">Validation tests</a></li><li><a href="#about">About</a></li></ul></div>
+  </div>
+  <div class="container"><p class="small" style="margin-top:20px;opacity:.8">Estimates are not ground truth. Frequencies shown depend on the chosen tonic and tuning model.</p></div>
+</footer>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+'use strict';
+/* =====================================================================
+   Shruti Lab — single-file application
+   Sections: 1 utils/state · 2 music model · 3 DSP · 4 audio engine ·
+            5 microphone · 6 plotting · 7 pages · 8 boot
+   ===================================================================== */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const fmt = (x, d = 2) => (x === null || x === undefined || !isFinite(x)) ? '—' : Number(x).toFixed(d);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let toastT;
+function toast(msg, kind) { const t = $('#toast'); t.textContent = msg; t.className = 'toast show ' + (kind || ''); clearTimeout(toastT); toastT = setTimeout(() => t.className = 'toast', 6000); }
+
+/* ---------- shared state (bound to controls via data-bind) ---------- */
+const state = { sa: 240, model: 'et', volume: 0.25, wave: 'sine', algo: 'improved', target: 'nearest',
+  tol: 15, radius: 35, gateDb: -45, minConf: 0.8, proc: false };
+const LIMITS = { sa: [80, 600], volume: [0, 1], gateDb: [-70, -20], minConf: [0.5, 0.95], tol: [1, 50], radius: [5, 60] };
+
+/* =====================================================================
+   2. MUSIC MODEL
+   ===================================================================== */
+// Twelve pitch positions of the Hindustani octave (7 shuddha + 4 komal + tivra Ma).
+const POS = [
+  { n: 'Sa', k: 'S', d: 'Sa (Shadja)' }, { n: 'Komal Re', k: 'r' }, { n: 'Shuddha Re', k: 'R' },
+  { n: 'Komal Ga', k: 'g' }, { n: 'Shuddha Ga', k: 'G' }, { n: 'Shuddha Ma', k: 'M' },
+  { n: 'Tivra Ma', k: "M′" }, { n: 'Pa', k: 'P' }, { n: 'Komal Dha', k: 'd' },
+  { n: 'Shuddha Dha', k: 'D' }, { n: 'Komal Ni', k: 'n' }, { n: 'Shuddha Ni', k: 'N' }
+];
+const MODELS = {
+  et: { name: 'Equal-tempered approximation (12-TET)', desc: 'The octave is divided into 12 equal steps (ratio 2^(i/12)). This is a modern approximation widely used by instruments and tuners; it is not the only valid model of Indian classical pitch.', fr: null },
+  ji: { name: '5-limit just intonation (simplified)', desc: 'Small-integer ratios (e.g. Pa = 3/2, shuddha Ga = 5/4). One commonly cited simplified table; variants exist (for example Komal Ni as 9/5 or 16/9), so treat it as an educational model, not a definitive tuning.', fr: [[1,1],[16,15],[9,8],[6,5],[5,4],[4,3],[45,32],[3,2],[8,5],[5,3],[9,5],[15,8]] },
+  py: { name: 'Pythagorean (3-limit)', desc: 'All pitches are generated from stacked perfect fifths (3/2). A historically important construction used here as a comparison model.', fr: [[1,1],[256,243],[9,8],[32,27],[81,64],[4,3],[729,512],[3,2],[128,81],[27,16],[16,9],[243,128]] }
+};
+const ratioOf = (m, i) => MODELS[m].fr ? MODELS[m].fr[i][0] / MODELS[m].fr[i][1] : Math.pow(2, i / 12);
+const centsOf = (m, i) => 1200 * Math.log2(ratioOf(m, i));
+const freqOf = (i, oct = 0, m = state.model, sa = state.sa) => sa * ratioOf(m, i) * Math.pow(2, oct);
+const fracText = (m, i) => MODELS[m].fr ? MODELS[m].fr[i][0] + '/' + MODELS[m].fr[i][1] : '2^(' + i + '/12)';
+const octName = o => o === -1 ? 'Mandra' : o === 0 ? 'Madhya' : o === 1 ? 'Taar' : (o < 0 ? 'octave ' + o : 'octave +' + o);
+
+const SEVEN = [
+  { s: 'Sa', n: 'Shadja', dv: 'सा', pos: 0, desc: 'The tonic and reference for the whole system; every other swara is understood by its relationship to Sa. Sa is an immovable (achala) swara. Its absolute pitch is chosen by the performer to suit voice or instrument. The name is traditionally interpreted as the "source" of the other swaras.' },
+  { s: 'Re', n: 'Rishabha', dv: 'रे', pos: 2, desc: 'The second swara. It has a lowered (komal) and a natural (shuddha) form; which one is used depends on the raga. This card shows shuddha Re.' },
+  { s: 'Ga', n: 'Gandhara', dv: 'ग', pos: 4, desc: 'The third swara, with komal and shuddha forms. It strongly colours a raga\'s character; its exact intonation is a matter of tradition and context. This card shows shuddha Ga.' },
+  { s: 'Ma', n: 'Madhyama', dv: 'म', pos: 5, desc: 'The fourth swara, "the middle one". Ma has shuddha and a raised (tivra) form; it is the only swara with a tivra variant. This card shows shuddha Ma.' },
+  { s: 'Pa', n: 'Panchama', dv: 'प', pos: 7, desc: 'The fifth swara. Like Sa it is immovable (achala). Its close relationship to Sa (about 3:2) is why Sa–Pa is the usual basis of the tanpura drone.' },
+  { s: 'Dha', n: 'Dhaivata', dv: 'ध', pos: 9, desc: 'The sixth swara, with komal and shuddha forms. This card shows shuddha Dha.' },
+  { s: 'Ni', n: 'Nishada', dv: 'नि', pos: 11, desc: 'The seventh swara, with komal and shuddha forms, leading back to the upper Sa. This card shows shuddha Ni.' }
+];
+
+/* Map a measured frequency to the model: returns position info relative to Sa. */
+function mapNearest(f, m = state.model, sa = state.sa) {
+  const c = 1200 * Math.log2(f / sa);
+  let oct = Math.floor(c / 1200), w = c - oct * 1200, best = 0, bd = Infinity;
+  for (let i = 0; i <= 12; i++) { const ci = i === 12 ? 1200 : centsOf(m, i); const d = Math.abs(w - ci); if (d < bd) { bd = d; best = i; } }
+  let pos = best, o = oct;
+  if (best === 12) { pos = 0; o = oct + 1; }
+  const center = best === 12 ? 1200 : centsOf(m, best);
+  return { cents: c, oct: o, pos, dev: w - center };
+}
+/* Deviation from a specific position (any octave). */
+function devFromPos(f, i, m = state.model, sa = state.sa) {
+  const t = 1200 * Math.log2(f / sa) - centsOf(m, i); const k = Math.round(t / 1200);
+  return { dev: t - k * 1200, oct: k };
+}
+
+/*DSP-START*/
+/* =====================================================================
+   3. DSP — pitch estimation (pure functions, no DOM)
+   ===================================================================== */
+const ALGO_VERSION = 'shruti-pitch/1.0.0';
+const FMIN = 70, FMAX = 1000;           // detector search range for voice (Hz)
+
+/* Mean-square level in dBFS (full-scale sine ≈ −3 dBFS). */
+function rmsDb(buf) { let s = 0; for (let i = 0; i < buf.length; i++) s += buf[i] * buf[i]; return 10 * Math.log10(s / buf.length + 1e-12); }
+function median(arr) { if (!arr.length) return NaN; const a = Array.from(arr).sort((x, y) => x - y); const m = a.length >> 1; return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; }
+
+/* YIN (de Cheveigné & Kawahara 2002): difference function → cumulative mean
+   normalised difference (CMND) → absolute threshold → parabolic interpolation.
+   Lag range follows from the sample rate: tau = sampleRate / frequency. */
+function yinEstimate(buf, sr, fmin, fmax, thr) {
+  const n = buf.length;
+  const tauMax = Math.min(Math.floor(sr / fmin), n >> 1);
+  const tauMin = Math.max(2, Math.floor(sr / fmax));
+  const W = n - tauMax;                        // integration window, so j+tau stays inside the buffer
+  const d = new Float32Array(tauMax + 2), c = new Float32Array(tauMax + 2);
+  for (let tau = 1; tau <= tauMax; tau++) {
+    let s = 0;
+    for (let j = 0; j < W; j++) { const diff = buf[j] - buf[j + tau]; s += diff * diff; }
+    d[tau] = s;
+  }
+  c[0] = 1; let run = 0;
+  for (let tau = 1; tau <= tauMax; tau++) { run += d[tau]; c[tau] = run > 0 ? d[tau] * tau / run : 1; }
+  let tau = -1;
+  for (let t = tauMin; t < tauMax; t++) {      // first dip below the threshold, then walk to the local minimum
+    if (c[t] < thr) { while (t + 1 < tauMax && c[t + 1] < c[t]) t++; tau = t; break; }
+  }
+  if (tau === -1) { let m = tauMin; for (let t = tauMin; t < tauMax; t++) if (c[t] < c[m]) m = t; tau = m; }
+  let better = tau;
+  if (tau > 1 && tau < tauMax) {               // parabolic interpolation → sub-sample lag
+    const s0 = c[tau - 1], s1 = c[tau], s2 = c[tau + 1], den = s0 + s2 - 2 * s1;
+    if (den !== 0) better = tau + (s0 - s2) / (2 * den);
+  }
+  return { freq: sr / better, conf: clamp(1 - c[tau], 0, 1) };
+}
+
+/* Baseline: plain autocorrelation. Take the first local maximum (after the first
+   zero crossing) that reaches 90% of the largest peak. Integer-lag resolution. */
+function acfEstimate(buf, sr, fmin, fmax) {
+  const n = buf.length;
+  const tauMax = Math.min(Math.floor(sr / fmin), n >> 1);
+  const tauMin = Math.max(2, Math.floor(sr / fmax));
+  const W = n - tauMax;
+  const r = new Float32Array(tauMax + 2);
+  for (let t = 0; t <= tauMax; t++) { let s = 0; for (let j = 0; j < W; j++) s += buf[j] * buf[j + t]; r[t] = s; }
+  if (!(r[0] > 0)) return { freq: 0, conf: 0 };
+  let t0 = 1; while (t0 < tauMax && r[t0] > 0) t0++;
+  if (t0 >= tauMax) return { freq: 0, conf: 0 };
+  const lo = Math.max(t0, tauMin); let best = -Infinity;
+  for (let t = lo; t < tauMax; t++) if (r[t] > best) best = r[t];
+  if (!(best > 0)) return { freq: 0, conf: 0 };
+  for (let t = Math.max(lo, 1); t < tauMax; t++) {
+    if (r[t] >= 0.9 * best && r[t] >= r[t - 1] && r[t] >= r[t + 1]) return { freq: sr / t, conf: r[t] / r[0] };
+  }
+  return { freq: 0, conf: 0 };
+}
+
+/* Tracker: stateful per-frame pipeline.
+   'baseline' → silence gate + ACF, no smoothing.
+   'improved' → silence gate + YIN + confidence rejection + octave-jump guard
+                + median filter + log-domain exponential smoothing. */
+class PitchTracker {
+  constructor(kind, o = {}) {
+    this.kind = kind;
+    this.o = Object.assign({ gateDb: -45, minConf: 0.8, medianN: 5, alpha: 0.4, jumpConfirm: 3, fmin: FMIN, fmax: FMAX, yinThr: 0.25 }, o);
+    this.reset();
+  }
+  reset() { this.recent = []; this.smooth = null; this.pending = 0; this.miss = 0; }
+  _miss() { if (++this.miss > 8) { this.recent = []; this.smooth = null; this.pending = 0; } }
+  process(buf, sr) {
+    const o = this.o, db = rmsDb(buf);
+    const out = { voiced: false, freq: NaN, rawFreq: NaN, conf: 0, db, reason: '' };
+    if (db < o.gateDb) { out.reason = 'silence'; this._miss(); return out; }
+    if (this.kind === 'baseline') {
+      const e = acfEstimate(buf, sr, o.fmin, o.fmax);
+      out.rawFreq = e.freq; out.conf = e.conf;
+      if (!(e.freq > 0)) { out.reason = 'no periodicity'; return out; }
+      out.voiced = true; out.freq = e.freq; return out;
+    }
+    const e = yinEstimate(buf, sr, o.fmin, o.fmax, o.yinThr);
+    out.rawFreq = e.freq; out.conf = e.conf;
+    if (!(e.freq > 0) || e.conf < o.minConf) { out.reason = 'low confidence'; this._miss(); return out; }
+    const f = e.freq;
+    if (this.recent.length >= 2) {            // octave / large-jump guard
+      const jump = Math.abs(1200 * Math.log2(f / median(this.recent)));
+      if (jump > 600) {
+        if (++this.pending < o.jumpConfirm) { out.reason = 'jump suspended'; return out; }
+        this.recent = []; this.smooth = null;  // jump persisted → accept as a genuine change
+      } else this.pending = 0;
+    }
+    this.pending = 0; this.miss = 0;
+    this.recent.push(f); if (this.recent.length > o.medianN) this.recent.shift();
+    const mf = median(this.recent);
+    if (this.smooth === null || Math.abs(1200 * Math.log2(mf / this.smooth)) > 150) this.smooth = mf;
+    else this.smooth = this.smooth * Math.pow(mf / this.smooth, o.alpha);
+    out.voiced = true; out.freq = this.smooth; return out;
+  }
+}
+
+/* ---- reverberation: frame levels and decay-slope estimator ---- */
+function frameDb(x, sr, win, hop) {
+  const t = [], db = [];
+  for (let s = 0; s + win <= x.length; s += hop) { let e = 0; for (let j = 0; j < win; j++) e += x[s + j] * x[s + j]; t.push((s + win / 2) / sr); db.push(10 * Math.log10(e / win + 1e-12)); }
+  return { t, db };
+}
+function movAvg(a, k) { const o = new Array(a.length); const h = k >> 1; for (let i = 0; i < a.length; i++) { let s = 0, c = 0; for (let j = Math.max(0, i - h); j <= Math.min(a.length - 1, i + h); j++) { s += a[j]; c++; } o[i] = s / c; } return o; }
+/* Interrupted-noise style estimate: fit the decay between −5 dB and −25 dB below the
+   steady level and extrapolate to −60 dB. Refuses to report if the dynamic range is too small. */
+function estimateRT(t, db, tStart, opt = {}) {
+  const o = Object.assign({ minRange: 35, hi: 5, lo: 25 }, opt);
+  const pre = []; for (let i = 0; i < t.length; i++) if (t[i] < tStart - 0.05) pre.push(db[i]);
+  if (pre.length < 10) return { ok: false, why: 'Not enough pre-roll to measure the noise floor.' };
+  const floor = median(pre), sm = movAvg(db, 5);
+  let pk = -Infinity, ip = -1;
+  for (let i = 0; i < t.length; i++) if (t[i] >= tStart && sm[i] > pk) { pk = sm[i]; ip = i; }
+  if (ip < 0) return { ok: false, floor, why: 'No signal found after the burst start.' };
+  let ie = ip;
+  for (let i = ip; i < sm.length; i++) { if (sm[i] >= pk - 3) ie = i; else if (sm[i] < pk - 10) break; }
+  let L0 = 0, c = 0; for (let i = Math.max(0, ie - 15); i <= ie; i++) { L0 += db[i]; c++; } L0 /= c;
+  const range = L0 - floor;
+  if (range < o.minRange) return { ok: false, floor, L0, range, why: 'Not measurable: dynamic range ' + range.toFixed(1) + ' dB is below the ' + o.minRange + ' dB required (raise level or reduce noise).' };
+  let i5 = -1, i25 = -1;
+  for (let i = ie; i < sm.length; i++) { if (i5 < 0 && sm[i] <= L0 - o.hi) i5 = i; if (sm[i] <= L0 - o.lo) { i25 = i; break; } }
+  if (i5 < 0 || i25 < 0 || i25 - i5 < 5) return { ok: false, floor, L0, range, why: 'Decay did not reach −25 dB inside the recording window (lengthen the recording or raise the level).' };
+  const n = i25 - i5 + 1; let sx = 0, sy = 0, sxx = 0, sxy = 0, syy = 0;
+  for (let i = i5; i <= i25; i++) { sx += t[i]; sy += db[i]; sxx += t[i] * t[i]; sxy += t[i] * db[i]; syy += db[i] * db[i]; }
+  const den = n * sxx - sx * sx, slope = (n * sxy - sx * sy) / den, icpt = (sy - slope * sx) / n;
+  if (!(slope < 0)) return { ok: false, floor, L0, range, why: 'No decaying slope found.' };
+  const r = (n * sxy - sx * sy) / Math.sqrt(den * (n * syy - sy * sy) + 1e-30);
+  return { ok: true, rt: -60 / slope, r2: r * r, floor, L0, range, slope, icpt, i5, i25, t5: t[i5], t25: t[i25] };
+}
+/*DSP-END*/
+/*SIM-START*/
+/* =====================================================================
+   V2 RESEARCH CORE — pure functions, no DOM.
+   Depends on the v1 DSP block (PitchTracker, yinEstimate, rmsDb, median,
+   frameDb, estimateRT, clamp) and on mulberry32 / gauss.
+   ===================================================================== */
+const SIM_VERSION = 'shruti-sim/2.0.0';
+
+/* ---- radix-2 FFT ---- */
+const _fftPlans = {};
+function fftPlan(n) {
+  if (_fftPlans[n]) return _fftPlans[n];
+  const cos = new Float64Array(n / 2), sin = new Float64Array(n / 2), rev = new Uint32Array(n);
+  for (let k = 0; k < n / 2; k++) { cos[k] = Math.cos(2 * Math.PI * k / n); sin[k] = Math.sin(2 * Math.PI * k / n); }
+  const bits = Math.log2(n);
+  for (let i = 0; i < n; i++) { let r = 0; for (let b = 0; b < bits; b++) if (i & (1 << b)) r |= 1 << (bits - 1 - b); rev[i] = r; }
+  return (_fftPlans[n] = { cos, sin, rev });
+}
+function fft(re, im, inverse) {
+  const n = re.length, p = fftPlan(n);
+  for (let i = 0; i < n; i++) { const j = p.rev[i]; if (j > i) { let t = re[i]; re[i] = re[j]; re[j] = t; t = im[i]; im[i] = im[j]; im[j] = t; } }
+  for (let size = 2; size <= n; size <<= 1) {
+    const half = size >> 1, step = n / size;
+    for (let i = 0; i < n; i += size) {
+      for (let j = 0, k = 0; j < half; j++, k += step) {
+        const wr = p.cos[k], wi = inverse ? p.sin[k] : -p.sin[k], a = i + j, b = a + half;
+        const tr = re[b] * wr - im[b] * wi, ti = re[b] * wi + im[b] * wr;
+        re[b] = re[a] - tr; im[b] = im[a] - ti; re[a] += tr; im[a] += ti;
+      }
+    }
+  }
+  if (inverse) for (let i = 0; i < n; i++) { re[i] /= n; im[i] /= n; }
+}
+function convolveTrunc(x, h) {                    // linear convolution, truncated to x.length
+  const n = x.length + h.length - 1; let M = 1; while (M < n) M <<= 1;
+  const ar = new Float64Array(M), ai = new Float64Array(M), br = new Float64Array(M), bi = new Float64Array(M);
+  ar.set(x); br.set(h); fft(ar, ai, false); fft(br, bi, false);
+  for (let i = 0; i < M; i++) { const r = ar[i] * br[i] - ai[i] * bi[i], q = ar[i] * bi[i] + ai[i] * br[i]; ar[i] = r; ai[i] = q; }
+  fft(ar, ai, true); const out = new Float32Array(x.length); for (let i = 0; i < x.length; i++) out[i] = ar[i]; return out;
+}
+
+/* ---- drone-aware front end ----
+   1. Hann-window the frame, zero-pad to M = 2N, FFT → power spectrum P.
+   2. Subtract alpha × (calibrated drone power spectrum D), floor at beta × P.
+   3. Inverse FFT of the cleaned power = autocorrelation (Wiener–Khinchin);
+      divide by the window's own autocorrelation to remove taper bias.
+   4. d(tau) = 2 (r(0) − r(tau)) feeds the same YIN CMND/threshold logic as v1. */
+const _win = {};
+function hannInfo(N) {
+  if (_win[N]) return _win[N];
+  const w = new Float64Array(N); let s2 = 0; for (let i = 0; i < N; i++) { w[i] = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / N); s2 += w[i] * w[i]; }
+  const M = 2 * N, re = new Float64Array(M), im = new Float64Array(M);
+  for (let i = 0; i < N; i++) re[i] = w[i] * w[i]; fft(re, im, false);
+  for (let k = 0; k < M; k++) { re[k] = re[k] * re[k] + im[k] * im[k]; im[k] = 0; } fft(re, im, true);
+  const rw = new Float64Array(N / 2 + 1); for (let t = 0; t <= N / 2; t++) rw[t] = re[t] / re[0];
+  return (_win[N] = { w, s2, M, rw });
+}
+function powerSpectrum(buf) {                       // zero-padded windowed power spectrum, length 2N
+  const N = buf.length, { w, M } = hannInfo(N), re = new Float64Array(M), im = new Float64Array(M);
+  for (let i = 0; i < N; i++) re[i] = buf[i] * w[i]; fft(re, im, false);
+  const P = new Float64Array(M); for (let k = 0; k < M; k++) P[k] = re[k] * re[k] + im[k] * im[k]; return P;
+}
+function droneProfileFromFrames(frames) {           // average power spectrum of drone-only frames (all the same length)
+  let acc = null, n = 0;
+  for (const f of frames) { const P = powerSpectrum(f); if (!acc) acc = new Float64Array(P.length); for (let k = 0; k < P.length; k++) acc[k] += P[k]; n++; }
+  if (!n) return null; for (let k = 0; k < acc.length; k++) acc[k] /= n; return { D: acc, N: frames[0].length, frames: n };
+}
+function droneProfileFrom(signal, N, hop) {         // same, cutting frames out of a drone-only recording
+  const fr = []; for (let s = 0; s + N <= signal.length; s += hop) fr.push(signal.subarray(s, s + N)); return droneProfileFromFrames(fr);
+}
+function cmndPick(d, tauMin, tauMax, thr) {
+  const c = new Float32Array(tauMax + 2); c[0] = 1; let run = 0;
+  for (let t = 1; t <= tauMax; t++) { run += d[t]; c[t] = run > 0 ? d[t] * t / run : 1; }
+  let tau = -1;
+  for (let t = tauMin; t < tauMax; t++) if (c[t] < thr) { while (t + 1 < tauMax && c[t + 1] < c[t]) t++; tau = t; break; }
+  if (tau === -1) { let m = tauMin; for (let t = tauMin; t < tauMax; t++) if (c[t] < c[m]) m = t; tau = m; }
+  let better = tau;
+  if (tau > 1 && tau < tauMax) { const s0 = c[tau - 1], s1 = c[tau], s2 = c[tau + 1], den = s0 + s2 - 2 * s1; if (den !== 0) better = tau + (s0 - s2) / (2 * den); }
+  return { tau: better, conf: clamp(1 - c[tau], 0, 1) };
+}
+function droneAwareEstimate(buf, sr, prof, o) {
+  const N = buf.length, { s2, M, rw } = hannInfo(N), P = powerSpectrum(buf);
+  const tauMax = Math.min(Math.floor(sr / o.fmin), N >> 1), tauMin = Math.max(2, Math.floor(sr / o.fmax));
+  let totP = 0, totC = 0;
+  const Pc = new Float64Array(M), D = prof && prof.N === N ? prof.D : null;
+  for (let k = 0; k < M; k++) { const v = D ? Math.max(P[k] - o.alpha * D[k], o.beta * P[k]) : P[k]; Pc[k] = v; totC += v; totP += P[k]; }
+  const resDb = 10 * Math.log10(totC / M / s2 + 1e-12);      // estimated mean-square level of what is left (dBFS)
+  let totD = 0; if (D) for (let k = 0; k < M; k++) totD += D[k];
+  const resVsDrone = D ? totC / (totD + 1e-18) : Infinity;
+  const im = new Float64Array(M); fft(Pc, im, true);          // Pc now holds the autocorrelation
+  const r0 = Pc[0] / rw[0], d = new Float32Array(tauMax + 2);
+  for (let t = 1; t <= tauMax; t++) d[t] = Math.max(0, 2 * (r0 - Pc[t] / rw[t]));
+  const e = cmndPick(d, tauMin, tauMax, o.yinThr);
+  return { freq: sr / e.tau, conf: e.conf, resDb, resVsDrone, totP, totC };
+}
+/* Tracker with the same back-end (confidence rejection, octave-jump guard, median, smoothing) as v1 'improved'. */
+class DroneTracker extends PitchTracker {
+  constructor(prof, o = {}) { super('improved', Object.assign({ subAlpha: 1.5, beta: 0.05, smoothAlpha: 0.4, minResVsDrone: 0.05 }, o)); this.prof = prof; this.kind = 'drone'; }
+  process(buf, sr) {
+    const o = this.o, out = { voiced: false, freq: NaN, rawFreq: NaN, conf: 0, db: rmsDb(buf), reason: '' };
+    const e = droneAwareEstimate(buf, sr, this.prof, { fmin: o.fmin, fmax: o.fmax, yinThr: o.yinThr, alpha: o.subAlpha, beta: o.beta });
+    out.db = e.resDb; out.rawFreq = e.freq; out.conf = e.conf;
+    if (e.resDb < o.gateDb) { out.reason = 'silence'; this._miss(); return out; }
+    if (e.resVsDrone < o.minResVsDrone) { out.reason = 'silence'; this._miss(); return out; }   // nothing left after removing the drone
+    if (!(e.freq > 0) || e.conf < o.minConf) { out.reason = 'low confidence'; this._miss(); return out; }
+    const f = e.freq;
+    if (this.recent.length >= 2) {
+      const jump = Math.abs(1200 * Math.log2(f / median(this.recent)));
+      if (jump > 600) { if (++this.pending < o.jumpConfirm) { out.reason = 'jump suspended'; return out; } this.recent = []; this.smooth = null; } else this.pending = 0;
+    }
+    this.pending = 0; this.miss = 0;
+    this.recent.push(f); if (this.recent.length > o.medianN) this.recent.shift();
+    const mf = median(this.recent);
+    if (this.smooth === null || Math.abs(1200 * Math.log2(mf / this.smooth)) > 150) this.smooth = mf; else this.smooth = this.smooth * Math.pow(mf / this.smooth, o.smoothAlpha);
+    out.voiced = true; out.freq = this.smooth; return out;
+  }
+}
+/* Room-adaptive settings: map an estimated decay time to tracker settings. */
+function roomAdaptiveOpts(rt) {
+  const T = clamp(isFinite(rt) ? rt : 0, 0, 3);
+  return { medianN: 5 + 2 * Math.round(T * 2), smoothAlpha: clamp(0.4 - 0.1 * T, 0.15, 0.4), jumpConfirm: 3 + Math.round(T), minConf: clamp(0.8 + 0.04 * T, 0.8, 0.9) };
+}
+
+/* ---- signal simulator: melody + tanpura-like drone + room + noise, with known truth ---- */
+const SIM_NOTES = [[0, 1.0], [2, 0.9], [4, 1.0], [null, 0.8], [7, 1.0], [4, 0.8], [0, 1.1], [null, 0.7]];   // [12-TET semitone above Sa | rest, seconds]
+function buildMelody(sa, sr, vibratoCents, rng) {
+  const total = SIM_NOTES.reduce((a, n) => a + n[1], 0), n = Math.round(total * sr);
+  const cents = new Float32Array(n), mask = new Float32Array(n), since = new Float32Array(n);
+  let i0 = 0, last = 0;
+  SIM_NOTES.forEach(([st, dur]) => {
+    const len = Math.round(dur * sr);
+    for (let i = 0; i < len; i++) { cents[i0 + i] = st === null ? last : st * 100; mask[i0 + i] = st === null ? 0 : 1; since[i0 + i] = i / sr; }
+    if (st !== null) last = st * 100; i0 += len;
+  });
+  const box = (a, w) => { const o = new Float32Array(a.length), cs = new Float64Array(a.length + 1); for (let i = 0; i < a.length; i++) cs[i + 1] = cs[i] + a[i];
+    const h = w >> 1; for (let i = 0; i < a.length; i++) { const lo = Math.max(0, i - h), hi = Math.min(a.length, i + h + 1); o[i] = (cs[hi] - cs[lo]) / (hi - lo); } return o; };
+  const g = box(cents, Math.round(0.07 * sr)), env = box(mask, Math.round(0.05 * sr));
+  const f0 = new Float32Array(n), truthCents = new Float32Array(n), ph0 = rng() * 6.28;
+  for (let i = 0; i < n; i++) {
+    const t = i / sr, vib = vibratoCents * Math.sin(2 * Math.PI * 5.5 * t + ph0) * clamp((since[i] - 0.3) / 0.3, 0, 1) * mask[i];
+    truthCents[i] = g[i] + vib; f0[i] = sa * Math.pow(2, truthCents[i] / 1200);
+  }
+  return { n, f0, env, mask, truthCents };
+}
+/* band-limited wavetable oscillator (fast): table holds one cycle of sum_h a_h sin(h x) */
+function makeTable(amps) {
+  const L = 8192, tb = new Float32Array(L + 1);
+  for (let i = 0; i < L; i++) { let v = 0; const x = 2 * Math.PI * i / L; for (let h = 1; h <= amps.length; h++) v += amps[h - 1] * Math.sin(h * x); tb[i] = v; }
+  tb[L] = tb[0]; return tb;
+}
+function tabRead(tb, cycles) { const L = 8192; let ph = cycles - Math.floor(cycles); const p = ph * L, i = p | 0, fr = p - i; return tb[i] + (tb[i + 1] - tb[i]) * fr; }
+function synthVoice(mel, sr, rng) {
+  let mx = 0; for (let i = 0; i < mel.n; i += 64) mx = Math.max(mx, mel.f0[i]);
+  const nh = Math.min(20, Math.floor(0.45 * sr / mx)), am = []; for (let h = 1; h <= nh; h++) am.push(1 / Math.pow(h, 1.1));
+  const tb = makeTable(am), x = new Float32Array(mel.n); let ph = 0;
+  for (let i = 0; i < mel.n; i++) { ph += mel.f0[i] / sr; x[i] = mel.env[i] * (tabRead(tb, ph) + 0.04 * gauss(rng)); }
+  return x;
+}
+function synthDrone(sa, sr, secs, rng, exactLoop) {          // 4 plucked strings: low Pa, Sa, Sa, low Sa (slightly detuned), bright jawari-like spectrum
+  const n = Math.round(secs * sr), x = new Float32Array(n), strings = [0.75, 1, 1, 0.5], det = [0, 1.7, -1.9, 0.8];
+  strings.forEach((r, s) => {
+    let f = sa * r * Math.pow(2, det[s] / 1200); if (exactLoop) f = Math.round(f * secs) / secs; const period = 1.6, off = (s * 0.4 + rng() * 0.05), ph0 = rng(), nh = Math.min(25, Math.floor(0.45 * sr / f));
+    const am = []; for (let h = 1; h <= nh; h++) am.push(1 / Math.pow(h, 0.8)); const tb = makeTable(am);
+    for (let i = 0; i < n; i++) {
+      const t = i / sr, tt = ((t - off) % period + period) % period, env = 0.45 + 0.55 * Math.exp(-tt / 0.9);
+      x[i] += env * tabRead(tb, f * t + ph0);
+    }
+  });
+  return x;
+}
+function makeIR(rt, sr, rng, drrDb) {              // exponentially decaying Gaussian-noise tail + direct path
+  if (!(rt > 0)) return null;
+  const n = Math.ceil(rt * sr * 1.05), h = new Float32Array(n), k = 6.9078 / (rt * sr); let e = 0;
+  for (let i = 1; i < n; i++) { h[i] = gauss(rng) * Math.exp(-k * i); e += h[i] * h[i]; }
+  const g = Math.sqrt(Math.pow(10, -drrDb / 10) / (e + 1e-18)); for (let i = 1; i < n; i++) h[i] *= g; h[0] = 1; return h;
+}
+const rmsOf = (x, m) => { let s = 0, c = 0; for (let i = 0; i < x.length; i++) if (!m || m[i] > 0.5) { s += x[i] * x[i]; c++; } return Math.sqrt(s / Math.max(1, c)); };
+/* Dry material is generated once per (Sa, sample rate, seed) and reused across conditions. */
+function makeBase(p) {                             // p: {sa, sr, seed, vibrato, calSecs}
+  const rng = mulberry32(p.seed), mel = buildMelody(p.sa, p.sr, p.vibrato, rng), voice = synthVoice(mel, p.sr, rng);
+  const vg = 0.1 / rmsOf(voice, mel.mask); for (let i = 0; i < voice.length; i++) voice[i] *= vg;
+  const drone = synthDrone(p.sa, p.sr, mel.n / p.sr, rng), dg = 1 / rmsOf(drone); for (let i = 0; i < drone.length; i++) drone[i] *= dg;
+  const cal = synthDrone(p.sa, p.sr, p.calSecs, mulberry32(p.seed + 99991)), cg = 1 / rmsOf(cal); for (let i = 0; i < cal.length; i++) cal[i] *= cg;
+  return { p, mel, voice, drone, cal, irs: {} };
+}
+function simulate(base, c) {                       // c: {vdrDb|null, snrDb|null, rt, drrDb}
+  const p = base.p, mel = base.mel, sr = p.sr, key = c.rt + '/' + c.drrDb;
+  if (c.rt > 0 && !base.irs[key]) base.irs[key] = makeIR(c.rt, sr, mulberry32(p.seed + Math.round(c.rt * 1000)), c.drrDb);
+  const ir = c.rt > 0 ? base.irs[key] : null, nr = mulberry32(p.seed + 31), ns = c.snrDb !== null ? 0.1 / Math.pow(10, c.snrDb / 20) : 0;
+  const dgain = c.vdrDb !== null ? 0.1 * Math.pow(10, -c.vdrDb / 20) : 0;
+  let mix = new Float32Array(mel.n); for (let i = 0; i < mel.n; i++) mix[i] = base.voice[i] + dgain * base.drone[i];
+  if (ir) mix = convolveTrunc(mix, ir);
+  if (ns) for (let i = 0; i < mel.n; i++) mix[i] += ns * gauss(nr);
+  let cal = null;                                    // drone-only calibration recording made in the same room
+  if (c.vdrDb !== null) { cal = new Float32Array(base.cal.length); for (let i = 0; i < cal.length; i++) cal[i] = dgain * base.cal[i];
+    if (ir) cal = convolveTrunc(cal, ir); if (ns) for (let i = 0; i < cal.length; i++) cal[i] += ns * gauss(nr); }
+  let rtEst = NaN;                                   // simulated interrupted-noise room measurement
+  if (ir) { const r2 = mulberry32(p.seed + 7), pre = Math.round(1.2 * sr), bl = Math.round(1.0 * sr), tl = Math.round(Math.max(2.5, c.rt * 1.8) * sr), sig = new Float32Array(pre + bl + tl);
+    for (let i = 0; i < bl; i++) sig[pre + i] = 0.3 * gauss(r2); const y = convolveTrunc(sig, ir); const q = (ns || 1e-4) * 0.3; for (let i = 0; i < y.length; i++) y[i] += q * gauss(r2);
+    const fd = frameDb(y, sr, 512, 240), est = estimateRT(fd.t, fd.db, 1.2); rtEst = est.ok ? est.rt : NaN; }
+  return { mix, cal, mel, rtEst, sa: p.sa };
+}
+
+/* ---- evaluation ---- */
+function runMethod(method, sim, o) {            // returns per-frame [{pred|null, t}]
+  const { N, hop, sr } = o, mix = sim.mix, out = [];
+  let tr;
+  const base = { gateDb: o.gateDb, minConf: o.minConf };
+  if (method === 'baseline') tr = new PitchTracker('baseline', base);
+  else if (method === 'improved') tr = new PitchTracker('improved', base);
+  else {
+    const prof = sim.cal ? droneProfileFrom(sim.cal, N, hop) : null;
+    const ad = method === 'drone_room' ? (o.adaptFn || roomAdaptiveOpts)(sim.rtEst) : {};
+    tr = new DroneTracker(prof, Object.assign({}, base, { subAlpha: o.subAlpha, beta: o.beta, minResVsDrone: o.minResVsDrone }, ad));
+  }
+  for (let s = 0; s + N <= mix.length; s += hop) { const r = tr.process(mix.subarray(s, s + N), sr); out.push({ s, f: r.voiced ? r.freq : null }); }
+  return out;
+}
+function scoreFrames(frames, sim, N) {
+  const mel = sim.mel; let nv = 0, nu = 0, hit50 = 0, hit20 = 0, det = 0, oct = 0, fa = 0; const errs = [], fine = [];
+  for (const fr of frames) {
+    let inNote = 0, sc = 0; for (let i = fr.s; i < fr.s + N; i++) { if (mel.mask[i] > 0.5) { inNote++; sc += mel.truthCents[i]; } }
+    const frac = inNote / N;
+    if (frac >= 0.9) {
+      nv++; const tc = sc / inNote, tf = sim.sa * Math.pow(2, tc / 1200);
+      if (fr.f !== null) { det++; const e = 1200 * Math.log2(fr.f / tf); errs.push(Math.abs(e)); if (Math.abs(e) <= 50) { hit50++; fine.push(e); } if (Math.abs(e) <= 20) hit20++;
+        const k = Math.round(e / 1200); if (k !== 0 && Math.abs(e - 1200 * k) <= 50) oct++; }
+    } else if (frac <= 0.1) { nu++; if (fr.f !== null) fa++; }
+  }
+  const sd = a => { if (a.length < 2) return NaN; const m = a.reduce((x, y) => x + y, 0) / a.length; return Math.sqrt(a.reduce((x, y) => x + (y - m) * (y - m), 0) / (a.length - 1)); };
+  return { voicedFrames: nv, restFrames: nu, rpa50: nv ? 100 * hit50 / nv : NaN, rpa20: nv ? 100 * hit20 / nv : NaN, recall: nv ? 100 * det / nv : NaN, octaveErr: nv ? 100 * oct / nv : NaN, medAbsErr: errs.length ? median(errs) : NaN, sdFine: sd(fine), falseAlarm: nu ? 100 * fa / nu : NaN };
+}
+
+/* ---- full study grid (shared by the browser page and headless tests) ---- */
+const SIM_COLS = ['runId', 'simVersion', 'algorithmVersion', 'seed', 'saHz', 'sampleRate', 'frameSize', 'hop', 'vibratoCents', 'vdrDb', 'snrDb', 'rt60', 'drrDb', 'calSecs', 'rtEstimated', 'method', 'subAlpha', 'beta', 'minResVsDrone', 'minConf', 'gateDb', 'voicedFrames', 'restFrames', 'rpa50', 'rpa20', 'recallPct', 'octaveErrPct', 'medAbsErrCents', 'sdFineCents', 'falseAlarmPct'];
+async function runGrid(cfg, hooks) {
+  const h = Object.assign({ progress() {}, abort: () => false, yield: () => Promise.resolve() }, hooks), rows = [];
+  const N = cfg.sr <= 8000 ? 1024 : 2048, hop = N / 4, total = cfg.seeds.length * cfg.vdr.length * cfg.snr.length * cfg.rt.length; let done = 0, runId = 0;
+  const o = { N, hop, sr: cfg.sr, gateDb: cfg.gateDb, minConf: cfg.minConf, subAlpha: cfg.subAlpha, beta: cfg.beta, minResVsDrone: cfg.minResVsDrone };
+  for (const seed of cfg.seeds) {
+    const base = makeBase({ sa: cfg.sa, sr: cfg.sr, seed, vibrato: cfg.vibrato, calSecs: cfg.calSecs });
+    for (const vdr of cfg.vdr) for (const snr of cfg.snr) for (const rt of cfg.rt) {
+      if (h.abort()) return { rows, aborted: true, N, hop };
+      const c = { vdrDb: vdr, snrDb: snr, rt, drrDb: cfg.drr }, sim = simulate(base, c); runId++;
+      for (const m of cfg.methods) {
+        const sc = scoreFrames(runMethod(m, sim, o), sim, N), f = (v, d) => isFinite(v) ? +v.toFixed(d) : '';
+        rows.push({ runId, simVersion: SIM_VERSION, algorithmVersion: ALGO_VERSION, seed, saHz: cfg.sa, sampleRate: cfg.sr, frameSize: N, hop, vibratoCents: cfg.vibrato, vdrDb: vdr === null ? 'none' : vdr, snrDb: snr === null ? 'none' : snr, rt60: rt, drrDb: cfg.drr, calSecs: cfg.calSecs, rtEstimated: f(sim.rtEst, 3), method: m, subAlpha: cfg.subAlpha, beta: cfg.beta, minResVsDrone: cfg.minResVsDrone, minConf: cfg.minConf, gateDb: cfg.gateDb, voicedFrames: sc.voicedFrames, restFrames: sc.restFrames, rpa50: f(sc.rpa50, 2), rpa20: f(sc.rpa20, 2), recallPct: f(sc.recall, 2), octaveErrPct: f(sc.octaveErr, 2), medAbsErrCents: f(sc.medAbsErr, 2), sdFineCents: f(sc.sdFine, 2), falseAlarmPct: f(sc.falseAlarm, 2) });
+      }
+      done++; h.progress(done, total); await h.yield();
+    }
+  }
+  return { rows, aborted: false, N, hop };
+}
+/*SIM-END*/
+
+
+/* ---- reproducible test-signal helpers ---- */
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function gauss(rng) { let u = 0; while (!u) u = rng(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rng()); }
+function synthTone(freq, sr, secs, kind, snrDb, rng) {
+  const n = Math.round(sr * secs), x = new Float32Array(n), H = kind === 'harm' ? [1, .5, .33, .25, .2, .15] : [1];
+  let e = 0;
+  for (let i = 0; i < n; i++) { let v = 0; for (let h = 0; h < H.length; h++) v += H[h] * Math.sin(2 * Math.PI * freq * (h + 1) * i / sr); x[i] = v; e += v * v; }
+  const g = 0.1 / Math.sqrt(e / n);                     // signal RMS fixed at 0.1 (−20 dBFS)
+  const ns = snrDb === null ? 0 : 0.1 / Math.pow(10, snrDb / 20);
+  for (let i = 0; i < n; i++) x[i] = x[i] * g + (ns ? ns * gauss(rng) : 0);
+  return x;
+}
+
+/* =====================================================================
+   4. AUDIO ENGINE
+   ===================================================================== */
+const Engine = {
+  ctx: null, master: null, analyser: null, active: new Set(), token: 0, lastFreq: 240, richWave: null, saVoice: null,
+  ensure() {
+    if (!this.ctx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) throw new Error('This browser does not support the Web Audio API. Please use a current version of Chrome.');
+      this.ctx = new AC();
+      this.master = this.ctx.createGain(); this.master.gain.value = state.volume;
+      this.analyser = this.ctx.createAnalyser(); this.analyser.fftSize = 2048; this.analyser.smoothingTimeConstant = 0;
+      this.master.connect(this.analyser); this.analyser.connect(this.ctx.destination);
+    }
+    if (this.ctx.state === 'suspended') this.ctx.resume();
+    return this.ctx;
+  },
+  setVolume() { if (this.ctx) this.master.gain.setTargetAtTime(state.volume, this.ctx.currentTime, 0.02); },
+  wave(osc) {
+    const w = state.wave;
+    if (w === 'rich') {
+      if (!this.richWave) { const im = new Float32Array([0, 1, .5, .33, .25, .18, .12, .08, .05]); this.richWave = this.ctx.createPeriodicWave(new Float32Array(im.length), im); }
+      osc.setPeriodicWave(this.richWave);
+    } else osc.type = w;
+  },
+  start(freq) {                                   // begins a tone; returns a voice handle
+    const ctx = this.ensure(), osc = ctx.createOscillator(), g = ctx.createGain();
+    this.wave(osc); osc.frequency.value = freq; g.gain.value = 0;
+    osc.connect(g); g.connect(this.master); osc.start();
+    g.gain.setTargetAtTime(0.6, ctx.currentTime, 0.012);   // soft attack (no click)
+    const v = { osc, g, released: false }; this.active.add(v); this.lastFreq = freq;
+    osc.onended = () => { try { osc.disconnect(); g.disconnect(); } catch (e) {} this.active.delete(v); updateStatusbar(); };
+    updateStatusbar(); return v;
+  },
+  release(v) {
+    if (!v || v.released) return; v.released = true;
+    const ctx = this.ctx, t = ctx.currentTime;
+    v.g.gain.cancelScheduledValues(t); v.g.gain.setTargetAtTime(0, t, 0.03);
+    try { v.osc.stop(t + 0.25); } catch (e) {}
+  },
+  stopAll() { this.token++; this.active.forEach(v => this.release(v)); this.saVoice = null; Drone.stop(); refreshToneUI(); },
+  async sequence(items) {                          // items: [{freq, ms}] or [{freqs:[..], ms}]
+    this.ensure(); const tok = ++this.token;
+    for (const it of items) {
+      if (tok !== this.token) return;
+      const vs = (it.freqs || [it.freq]).map(f => this.start(f));
+      await sleep(it.ms);
+      vs.forEach(v => this.release(v));
+      await sleep(70);
+    }
+  }
+};
+function refreshToneUI() {
+  const on = Engine.saVoice && !Engine.saVoice.released;
+  const b = $('#playSa'); if (b) b.textContent = on ? '▶ Playing — Sa' : '▶ Play Sa';
+  const t = $('#toneStatus'); if (t) t.textContent = on ? 'Playing Sa at ' + fmt(state.sa, 2) + ' Hz (' + state.wave + ').' : (Engine.active.size ? 'Tone playing.' : 'Tone stopped. Audio starts only after you press Play.');
+  updateStatusbar();
+}
+function guard(fn) { return async (...a) => { try { await fn(...a); } catch (e) { toast(e.message || String(e), 'err'); } }; }
+
+/* =====================================================================
+   5. MICROPHONE
+   ===================================================================== */
+const Mic = {
+  state: 'idle', stream: null, src: null, an: null, buf: null, owner: null,
+  friendly(e) {
+    const n = e && e.name;
+    if (n === 'NotAllowedError' || n === 'PermissionDeniedError') return 'Microphone permission was denied. Click the lock/tune icon at the left of Chrome\'s address bar, set Microphone to "Allow", then press Start again.';
+    if (n === 'NotFoundError' || n === 'DevicesNotFoundError') return 'No microphone was found. Connect or enable a microphone and try again.';
+    if (n === 'NotReadableError' || n === 'TrackStartError') return 'The microphone could not be started — it may be in use by another application.';
+    if (n === 'OverconstrainedError') return 'The microphone does not support the requested settings.';
+    if (n === 'SecurityError') return 'The browser blocked microphone access for this page (insecure context). Open the page via file:// in Chrome or http://localhost.';
+    return 'Microphone error: ' + ((e && e.message) || e);
+  },
+  async start(owner, processing) {
+    if (this.state !== 'idle') throw new Error('The microphone is already in use (' + this.owner + '). Stop it first.');
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('Microphone access is not available in this browser or context. Use Chrome and open the file locally or via localhost.');
+    const ctx = Engine.ensure();                    // inside the user gesture
+    this.state = 'requesting'; this.owner = owner; micUI();
+    let stream;
+    try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: !!processing, noiseSuppression: !!processing, autoGainControl: !!processing } }); }
+    catch (e) { this.state = 'idle'; this.owner = null; micUI(); throw new Error(this.friendly(e)); }
+    this.stream = stream;
+    this.src = ctx.createMediaStreamSource(stream);
+    this.an = ctx.createAnalyser(); this.an.fftSize = 4096; this.an.smoothingTimeConstant = 0;
+    this.src.connect(this.an);                      // NOT connected to the speakers (no feedback)
+    this.buf = new Float32Array(this.an.fftSize);
+    stream.getAudioTracks().forEach(t => t.onended = () => { toast('The microphone was disconnected or stopped.', 'err'); this.stop(); });
+    this.state = 'active'; micUI();
+  },
+  stop() {
+    if (this.stream) this.stream.getTracks().forEach(t => t.stop());
+    try { if (this.src) this.src.disconnect(); if (this.an) this.an.disconnect(); } catch (e) {}
+    const prev = this.owner;
+    this.stream = this.src = this.an = this.buf = null; this.state = 'idle'; this.owner = null;
+    micUI(); if (Live.hist) Live.onMicStopped(prev);
+  }
+};
+const micHandlers = {};   // owner → function(buf, timestamp)
+function micUI() {
+  const st = Mic.state, b1 = $('#micStart'), b2 = $('#micStop'), s = $('#micState');
+  if (b1) { b1.disabled = st !== 'idle'; b2.disabled = st !== 'active'; }
+  if (s) s.innerHTML = '<b>Microphone:</b> ' + ({ idle: 'off', requesting: 'waiting for permission… (accept the browser prompt)', active: 'ON — listening (sample rate ' + (Engine.ctx ? Engine.ctx.sampleRate : '?') + ' Hz)' })[st];
+  updateStatusbar();
+}
+function updateStatusbar() {
+  const mic = Mic.state === 'active', tone = Engine.active.size > 0 || !!Drone.src;
+  $('#statusbar').hidden = !(mic || tone);
+  $('#sbMic').hidden = !mic; $('#sbTone').hidden = !tone;
+  $('#sbMicOwner').textContent = mic ? '(' + Mic.owner + ')' : '';
+}
+
+/* =====================================================================
+   6. PLOTTING HELPERS
+   ===================================================================== */
+function fitCanvas(c) {
+  const dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+  if (!w || !h) return null;
+  const W = Math.round(w * dpr), H = Math.round(h * dpr);
+  if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+  const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); return { g, w, h };
+}
+const C = { ink: '#2b2118', muted: '#6a5a48', saffron: '#b45a12', teal: '#2f7f7a', terra: '#a8472f', gold: '#b8923a', grid: 'rgba(120,100,70,.18)' };
+function drawScope(c, an, len, idleText, active) {
+  const f = fitCanvas(c); if (!f) return; const { g, w, h } = f; g.clearRect(0, 0, w, h);
+  g.strokeStyle = C.grid; g.beginPath(); g.moveTo(0, h / 2); g.lineTo(w, h / 2); g.stroke();
+  if (!active || !an) { g.fillStyle = C.muted; g.font = '13px system-ui'; g.textAlign = 'center'; g.fillText(idleText, w / 2, h / 2 - 10); return; }
+  const N = an.fftSize, data = drawScope.buf && drawScope.buf.length === N ? drawScope.buf : (drawScope.buf = new Float32Array(N));
+  an.getFloatTimeDomainData(data);
+  let st = 0; for (let i = 1; i < N / 2; i++) if (data[i - 1] < 0 && data[i] >= 0) { st = i; break; }   // rising-zero trigger
+  const n = Math.min(len, N - st); let peak = 0.02; for (let i = 0; i < n; i++) peak = Math.max(peak, Math.abs(data[st + i]));
+  g.strokeStyle = C.teal; g.lineWidth = 2; g.beginPath();
+  for (let i = 0; i < n; i++) { const x = i / (n - 1) * w, y = h / 2 - data[st + i] / peak * (h / 2 - 8); i ? g.lineTo(x, y) : g.moveTo(x, y); }
+  g.stroke();
+}
+/* Generic line/dot plot. series: [{pts:[[x,y]|null], color, dots}] */
+function plot(c, series, o) {
+  const f = fitCanvas(c); if (!f) return; const { g, w, h } = f; g.clearRect(0, 0, w, h);
+  const L = o.left === undefined ? 52 : o.left, R = 10, T = 8, B = 22;
+  const X = x => L + (x - o.xmin) / (o.xmax - o.xmin) * (w - L - R), Y = y => T + (1 - (y - o.ymin) / (o.ymax - o.ymin)) * (h - T - B);
+  g.font = '11px system-ui'; g.textBaseline = 'middle';
+  for (const hl of o.hlines || []) {
+    if (hl.y < o.ymin || hl.y > o.ymax) continue;
+    g.strokeStyle = hl.color || C.grid; g.lineWidth = hl.bold ? 1.6 : 1; g.beginPath(); g.moveTo(L, Y(hl.y)); g.lineTo(w - R, Y(hl.y)); g.stroke();
+    if (hl.label) { g.fillStyle = hl.bold ? C.saffron : C.muted; g.textAlign = 'right'; g.fillText(hl.label, L - 6, Y(hl.y)); }
+  }
+  g.fillStyle = C.muted; g.textAlign = 'center'; g.textBaseline = 'top';
+  for (let i = 0; i <= 4; i++) { const xv = o.xmin + (o.xmax - o.xmin) * i / 4; g.fillText(xv.toFixed(1) + (o.xunit || ' s'), X(xv), h - B + 5); }
+  g.save(); g.beginPath(); g.rect(L, T, w - L - R, h - T - B); g.clip();
+  let any = false;
+  for (const s of series) {
+    g.strokeStyle = s.color; g.fillStyle = s.color; g.lineWidth = s.width || 2; let pen = false; g.beginPath();
+    for (const p of s.pts) {
+      if (!p || p[1] === null || !isFinite(p[1])) { pen = false; continue; }
+      any = true; const x = X(p[0]), y = Y(clamp(p[1], o.ymin, o.ymax));
+      if (s.dots) { g.beginPath(); g.arc(x, y, 2.2, 0, 7); g.fill(); } else { pen ? g.lineTo(x, y) : g.moveTo(x, y); pen = true; }
+    }
+    if (!s.dots) g.stroke();
+  }
+  if (o.extra) o.extra(g, X, Y);
+  g.restore();
+  if (!any && o.empty) { g.fillStyle = C.muted; g.font = '13px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(o.empty, (w + L) / 2, h / 2); }
+}
+function buildMandala(svg, withFill) {
+  const NS = 'http://www.w3.org/2000/svg'; svg.setAttribute('viewBox', '-100 -100 200 200'); svg.innerHTML = '';
+  const add = (tag, at) => { const e = document.createElementNS(NS, tag); for (const k in at) e.setAttribute(k, at[k]); svg.appendChild(e); return e; };
+  [[96, 24, 14], [78, 16, 12], [58, 12, 10], [38, 8, 8]].forEach(([R, n, wd], ri) => {
+    for (let k = 0; k < n; k++) add('path', { d: `M0,${-R} Q${wd},${-R * 0.82} 0,${-R * 0.62} Q${-wd},${-R * 0.82} 0,${-R}`, transform: `rotate(${k * 360 / n + (ri % 2 ? 360 / n / 2 : 0)})`, fill: withFill ? (ri % 2 ? '#f8e4c8' : '#d9eeeb') : 'none', stroke: '#b8923a', 'stroke-width': .7 });
+  });
+  [98, 60, 20, 8].forEach(r => add('circle', { r, fill: 'none', stroke: '#b45a12', 'stroke-width': .6 }));
+  add('circle', { r: 4, fill: '#b45a12' });
+}
+
+/* =====================================================================
+   7. PAGES
+   ===================================================================== */
+const Pages = {};
+let current = 'home';
+const PAGE_IDS = ['home', 'learn', 'live', 'shruti', 'lab', 'study', 'research', 'tests', 'about'];
+const TITLES = { home: 'Home', learn: 'Learn Swaras', live: 'Live Visualizer', shruti: 'Explore Shruti', lab: 'Acoustic Lab', study: 'Simulation Study', research: 'Research', tests: 'Validation Tests', about: 'About' };
+
+function route() {
+  let h = (location.hash || '#home').slice(1); if (!PAGE_IDS.includes(h)) h = 'home';
+  current = h;
+  $$('.page').forEach(p => p.classList.toggle('active', p.id === 'page-' + h));
+  $$('.nav-links a').forEach(a => a.dataset.page === h ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'));
+  document.title = TITLES[h] + ' — Shruti Lab';
+  $('#navLinks').classList.remove('open'); $('#menuBtn').setAttribute('aria-expanded', 'false');
+  window.scrollTo(0, 0); $('#main').focus({ preventScroll: true });
+  requestAnimationFrame(() => { Pages[h] && Pages[h].enter && Pages[h].enter(); });
+}
+
+/* ---------- state binding ---------- */
+function syncBound(except) {
+  $$('[data-bind]').forEach(el => {
+    if (el === except) return;
+    const v = state[el.dataset.bind];
+    if (el.type === 'checkbox') el.checked = !!v; else el.value = v;
+  });
+  $('#gateTxt').textContent = state.gateDb; $('#confTxt').textContent = Number(state.minConf).toFixed(2);
+}
+function bindAll() {
+  $$('[data-bind]').forEach(el => {
+    const key = el.dataset.bind;
+    el.addEventListener('input', () => {
+      let v;
+      if (el.type === 'checkbox') v = el.checked;
+      else if (typeof state[key] === 'number') { v = parseFloat(el.value); if (!isFinite(v)) return; const L = LIMITS[key]; if (L && (v < L[0] || v > L[1])) return; }
+      else v = el.value;
+      state[key] = v; syncBound(el); onStateChange(key);
+    });
+    el.addEventListener('change', () => {
+      if (typeof state[key] === 'number') { const L = LIMITS[key]; let v = parseFloat(el.value); if (!isFinite(v)) v = state[key]; state[key] = L ? clamp(v, L[0], L[1]) : v; }
+      syncBound(); onStateChange(key);
+    });
+  });
+}
+function onStateChange(key) {
+  if (key === 'volume') Engine.setVolume();
+  if (key === 'sa' && Engine.saVoice && !Engine.saVoice.released) { Engine.saVoice.osc.frequency.setTargetAtTime(state.sa, Engine.ctx.currentTime, 0.02); Engine.lastFreq = state.sa; }
+  if (key === 'wave' && Engine.saVoice && !Engine.saVoice.released) { Engine.release(Engine.saVoice); Engine.saVoice = Engine.start(state.sa); }
+  if (key === 'sa' && Drone.src) { Drone.start(); }
+  if (key === 'sa' && Live.droneProf) { $('#calStatus').textContent = 'Sa changed — please calibrate again.'; }
+  refreshMusic(); refreshToneUI();
+}
+function refreshMusic() {
+  $('#saReadout').textContent = fmt(state.sa, 2) + ' Hz';
+  $('#homeSaTxt').textContent = fmt(state.sa, 1) + ' Hz'; $('#homeModelTxt').textContent = MODELS[state.model].name;
+  $('#learnModelDesc').textContent = MODELS[state.model].name + ' — ' + MODELS[state.model].desc;
+  renderHome(); renderLearn(); renderExploreTables(); updateExplore(); updateTargetMsg();
+}
+
+/* ---------- HOME ---------- */
+const Home = { sel: 0, phase: 0 };
+function renderHome() {
+  const chips = $('#heroChips');
+  if (!chips.children.length) {
+    SEVEN.forEach((s, i) => { const b = document.createElement('button'); b.className = 'chip'; b.textContent = s.s; b.dataset.i = i; b.setAttribute('aria-pressed', i === Home.sel); b.onclick = guard(async () => { Home.sel = i; renderHome(); await Engine.sequence([{ freq: freqOf(s.pos), ms: 1100 }]); }); chips.appendChild(b); });
+  }
+  $$('#heroChips .chip').forEach((b, i) => b.setAttribute('aria-pressed', i === Home.sel));
+  const s = SEVEN[Home.sel], f = freqOf(s.pos);
+  $('#heroCaption').textContent = s.s + ' (' + s.n + ') · ' + fmt(f, 2) + ' Hz · ratio ' + fracText(state.model, s.pos) + ' to Sa · ' + fmt(centsOf(state.model, s.pos), 1) + ' cents above Sa';
+  const box = $('#homeSwaras'); box.innerHTML = '';
+  SEVEN.forEach(sw => {
+    const b = document.createElement('button'); b.className = 'mini'; b.setAttribute('aria-label', 'Play ' + sw.s + ', ' + fmt(freqOf(sw.pos), 1) + ' hertz');
+    b.innerHTML = '<span class="dv">' + sw.dv + '</span><b>' + sw.s + '</b><span class="f">' + sw.n + '<br>' + fmt(freqOf(sw.pos), 1) + ' Hz</span>';
+    b.onclick = guard(() => Engine.sequence([{ freq: freqOf(sw.pos), ms: 1100 }])); box.appendChild(b);
+  });
+  const hb = $('#harmonicsList'); hb.innerHTML = '';
+  for (let n = 1; n <= 8; n++) {
+    const f = state.sa * n, m = mapNearest(f); const row = document.createElement('div'); row.className = 'hbar';
+    row.innerHTML = '<span><b>' + n + '×</b> ' + fmt(f, 1) + ' Hz</span><div class="bar" style="width:' + (n / 8 * 100) + '%"></div><span>≈ ' + esc(POS[m.pos].n) + ' (' + octName(m.oct) + ') ' + (m.dev >= 0 ? '+' : '') + fmt(m.dev, 0) + ' ¢</span>';
+    hb.appendChild(row);
+  }
+}
+Pages.home = { enter() { buildMandala($('#heroMandala'), true); }, draw(ts) {
+  const c = $('#heroWave'), f = fitCanvas(c); if (!f) return; const { g, w, h } = f;
+  Home.phase = ts / 1000 * 1.6; g.clearRect(0, 0, w, h);
+  const cyc = 3 * freqOf(SEVEN[Home.sel].pos) / state.sa;
+  g.strokeStyle = C.gold; g.globalAlpha = .5; g.beginPath(); g.moveTo(0, h / 2); g.lineTo(w, h / 2); g.stroke(); g.globalAlpha = 1;
+  [[C.teal, 1, 2.5], [C.saffron, .35, 1.5]].forEach(([col, amp, lw], k) => {
+    g.strokeStyle = col; g.lineWidth = lw; g.beginPath();
+    for (let x = 0; x <= w; x += 2) { const p = x / w * cyc * 2 * Math.PI - Home.phase * (k + 1); const y = h / 2 - Math.sin(k ? 2 * p : p) * amp * (h / 2 - 12); x ? g.lineTo(x, y) : g.moveTo(x, y); }
+    g.stroke();
+  });
+} };
+
+/* ---------- LEARN ---------- */
+function renderLearn() {
+  const box = $('#learnCards'); box.innerHTML = '';
+  SEVEN.forEach((s, idx) => {
+    const f = freqOf(s.pos), c = centsOf(state.model, s.pos), el = document.createElement('article'); el.className = 'swara-card';
+    el.innerHTML = '<div class="top"><span class="num">' + (idx + 1) + ' of 7 · ascending</span><span class="dv" aria-hidden="true">' + s.dv + '</span></div>' +
+      '<h3>' + s.s + '<small>' + s.n + '</small></h3><p class="small">' + s.desc + '</p>' +
+      '<dl><dt>Pitch position</dt><dd>' + esc(POS[s.pos].n) + '</dd><dt>Ratio to Sa</dt><dd>' + fracText(state.model, s.pos) + ' (' + fmt(ratioOf(state.model, s.pos), 4) + ')</dd><dt>Cents above Sa</dt><dd>' + fmt(c, 1) + ' ¢</dd><dt>Frequency</dt><dd>' + fmt(f, 2) + ' Hz</dd></dl>' +
+      '<div class="fbar" role="img" aria-label="Position of ' + s.s + ' between Sa and upper Sa"><i style="left:' + (c / 12) + '%"></i></div><div class="mlabels"><span>Sa ' + fmt(state.sa, 0) + '</span><span>upper Sa ' + fmt(state.sa * 2, 0) + ' Hz</span></div>' +
+      '<button class="btn btn-primary btn-sm" style="margin-top:10px">▶ Play ' + s.s + '</button>';
+    el.querySelector('button').onclick = guard(() => Engine.sequence([{ freq: f, ms: 1500 }])); box.appendChild(el);
+  });
+  const tb = $('#twelveBody'); tb.innerHTML = '';
+  POS.forEach((p, i) => {
+    const tr = document.createElement('tr'); tr.innerHTML = '<td>' + (i + 1) + '</td><td>' + esc(p.n) + '</td><td>' + esc(p.k) + '</td><td>' + fracText(state.model, i) + '</td><td>' + fmt(centsOf(state.model, i), 1) + '</td><td>' + (i * 100) + '</td><td>' + fmt(freqOf(i), 2) + '</td><td><button class="btn btn-secondary btn-sm">▶</button></td>';
+    tr.querySelector('button').setAttribute('aria-label', 'Play ' + p.n); tr.querySelector('button').onclick = guard(() => Engine.sequence([{ freq: freqOf(i), ms: 1200 }])); tb.appendChild(tr);
+  });
+}
+const seqItems = (idxs, ms) => idxs.map(i => ({ freq: i === 'up' ? state.sa * 2 : freqOf(SEVEN[i].pos), ms }));
+Pages.learn = {};
+
+/* ---------- LIVE ---------- */
+const Live = { tracker: null, hist: [], last: null, shown: null, reason: '', conf: 0, level: -100,
+  onMicStopped() { this.shown = null; this.hist.push({ t: performance.now() / 1000, f: null }); readout(null, 'Microphone stopped.'); } };
+function populateTargets() {
+  const sel = $('#setTarget'); sel.innerHTML = '<option value="nearest">Nearest swara position (auto)</option>' + POS.map((p, i) => '<option value="' + i + '">' + p.n + ' (' + p.k + ')</option>').join('');
+  sel.value = state.target;
+  ['#exApos', '#exBpos'].forEach((id, k) => { $(id).innerHTML = POS.map((p, i) => '<option value="' + i + '">' + p.n + ' (' + p.k + ')</option>').join(''); $(id).value = k ? 7 : 0; });
+}
+function updateTargetMsg() { if (!Live.shown) readout(null, Mic.state === 'active' ? Live.reasonText : ''); }
+const REASONS = { silence: () => 'Too quiet (below the ' + state.gateDb + ' dBFS gate). Sing or hum closer to the microphone.', 'low confidence': () => 'The sound is noisy or not clearly periodic, so no reliable pitch is reported.', 'no periodicity': () => 'No clear periodicity found.', 'jump suspended': () => 'Large pitch jump — waiting for it to persist before accepting.' };
+function readout(r, msg) {
+  const hz = $('#liveHz'), sw = $('#liveSwara'), ce = $('#liveCents'), st = $('#liveStatus'), nd = $('#mNeedle'), zone = $('#mZone');
+  const tol = clamp(state.tol, 1, 50); zone.style.left = (50 - tol) + '%'; zone.style.width = (2 * tol) + '%';
+  if (!r) { hz.textContent = '—'; sw.textContent = '—'; ce.textContent = ''; nd.classList.add('idle'); st.className = 'status none'; st.textContent = Mic.state === 'active' ? 'No reliable pitch detected' : 'Waiting for microphone'; $('#liveMsg').textContent = msg || ''; return; }
+  hz.textContent = fmt(r.freq, 1); nd.classList.remove('idle');
+  const m = mapNearest(r.freq); let dev, label, within;
+  if (state.target === 'nearest') {
+    dev = m.dev; within = Math.abs(m.dev) <= state.radius;
+    label = within ? POS[m.pos].n + ' · ' + octName(m.oct) : 'Between mapped positions';
+    sw.textContent = label;
+    ce.textContent = within ? (dev >= 0 ? '+' : '') + fmt(dev, 1) + ' cents vs ' + POS[m.pos].n : 'Nearest: ' + POS[m.pos].n + ' (' + (m.dev >= 0 ? '+' : '') + fmt(m.dev, 0) + ' ¢) — outside ±' + state.radius + ' ¢ label radius';
+    $('#liveMsg').textContent = within ? '' : 'The measured pitch ' + fmt(r.freq, 1) + ' Hz does not sit on a position of the selected simplified model (it may be a gamak/meend inflection, a different tuning, or an unstable estimate), so no swara name is forced.';
+  } else {
+    const t = +state.target, d = devFromPos(r.freq, t); dev = d.dev; within = true;
+    sw.textContent = 'Target: ' + POS[t].n; ce.textContent = (dev >= 0 ? '+' : '') + fmt(dev, 1) + ' cents vs ' + POS[t].n + ' (' + octName(d.oct) + ')';
+    $('#liveMsg').textContent = 'Detected pitch is ' + fmt(r.freq, 1) + ' Hz.';
+  }
+  nd.style.left = (50 + clamp(dev, -50, 50)) + '%';
+  if (!within) { st.className = 'status none'; st.textContent = '… Between mapped positions'; }
+  else if (Math.abs(dev) <= tol) { st.className = 'status ok'; st.textContent = '✓ Near target (±' + tol + ' ¢)'; }
+  else if (dev < 0) { st.className = 'status off'; st.textContent = '↓ Below target'; }
+  else { st.className = 'status off'; st.textContent = '↑ Above target'; }
+}
+function liveFrame(buf) {
+  if (Live.calib) { calibCollect(buf); }
+  if (!Live.tracker || Live.tracker.kind !== state.algo || (state.algo === 'drone' && Live.tracker.prof !== Live.droneProf))
+    Live.tracker = state.algo === 'drone' ? new DroneTracker(Live.droneProf, { gateDb: state.gateDb, minConf: state.minConf, subAlpha: 3, beta: 0.05, minResVsDrone: 0.1 }) : new PitchTracker(state.algo);
+  Live.tracker.o.gateDb = state.gateDb; Live.tracker.o.minConf = state.minConf;
+  const r = Live.tracker.process(buf, Engine.ctx.sampleRate), now = performance.now() / 1000;
+  Live.level = r.db; Live.conf = r.voiced ? r.conf : 0;
+  if (r.voiced) { Live.last = { freq: r.freq, t: now }; Live.hist.push({ t: now, f: r.freq }); } else Live.hist.push({ t: now, f: null });
+  while (Live.hist.length && now - Live.hist[0].t > 12) Live.hist.shift();
+  Live.reasonText = (state.algo === 'drone' && !Live.droneProf ? 'Drone-aware mode has no calibration yet, so it works like plain spectral YIN. ' : '') + (REASONS[r.reason] ? REASONS[r.reason]() : '');
+  if (r.voiced) { Live.shown = r; readout(r); }
+  else if (Live.last && now - Live.last.t < 0.15) { /* brief hold: keep last reading to avoid flicker */ }
+  else { Live.shown = null; readout(null, Live.reasonText); }
+}
+micHandlers.live = liveFrame;
+Pages.live = {
+  enter() { refreshToneUI(); micUI(); readout(Live.shown, Live.reasonText); },
+  draw() {
+    drawScope($('#liveScope'), Engine.analyser, Math.max(64, Math.round(3 * (Engine.ctx ? Engine.ctx.sampleRate : 48000) / Engine.lastFreq)), 'No tone playing', Engine.active.size > 0);
+    drawScope($('#micScope'), Mic.an, 1024, 'Microphone off', Mic.state === 'active');
+    $('#confBar').style.width = (Live.conf * 100) + '%'; $('#lvlBar').style.width = clamp((Live.level + 80) / 80 * 100, 0, 100) + '%';
+    const now = performance.now() / 1000, pts = Live.hist.map(p => [p.t - now, p.f ? 1200 * Math.log2(p.f / state.sa) : null]);
+    const vals = pts.map(p => p[1]).filter(v => v !== null);
+    let lo = -100, hi = 1300; if (vals.length) { lo = Math.min(...vals) - 150; hi = Math.max(...vals) + 150; if (hi - lo < 700) { const m = (hi + lo) / 2; lo = m - 350; hi = m + 350; } }
+    const hl = [], ppc = 260 / (hi - lo);
+    for (let o = Math.floor(lo / 1200) - 1; o <= Math.ceil(hi / 1200); o++) for (let i = 0; i < 12; i++) { const y = o * 1200 + centsOf(state.model, i); hl.push({ y, label: ppc * 100 > 11 || i === 0 ? (i === 0 ? 'Sa' : POS[i].k) : '', bold: i === 0 }); }
+    plot($('#pitchTrace'), [{ pts, color: C.teal, width: 2.5 }], { xmin: -12, xmax: 0, ymin: lo, ymax: hi, hlines: hl, xticks: 4, empty: Mic.state === 'active' ? 'Sing or hum a sustained note…' : 'Start the microphone to see your pitch trace' });
+  }
+};
+
+/* ---------- EXPLORE ---------- */
+function gcd(a, b) { return b ? gcd(b, a % b) : a; }
+function exSel() { return { a: { i: +$('#exApos').value, o: +$('#exAoct').value }, b: { i: +$('#exBpos').value, o: +$('#exBoct').value } }; }
+function updateExplore() {
+  if (!$('#exApos').value) return;
+  const s = exSel(), m = state.model, fa = freqOf(s.a.i, s.a.o), fb = freqOf(s.b.i, s.b.o);
+  const ratio = fb / fa, cents = 1200 * Math.log2(ratio), semis = (s.b.i - s.a.i) + 12 * (s.b.o - s.a.o), tet = semis * 100;
+  let exact = '—';
+  if (MODELS[m].fr) { let N = MODELS[m].fr[s.b.i][0] * MODELS[m].fr[s.a.i][1], D = MODELS[m].fr[s.a.i][0] * MODELS[m].fr[s.b.i][1]; const e = s.b.o - s.a.o; if (e > 0) N *= Math.pow(2, e); else D *= Math.pow(2, -e); const g = gcd(N, D); exact = (N / g) + ' : ' + (D / g); }
+  else exact = '2^(' + semis + '/12)';
+  $('#exOut').innerHTML = '<dt>Tone A</dt><dd>' + esc(POS[s.a.i].n) + ' · ' + octName(s.a.o) + ' · ' + fmt(fa, 2) + ' Hz</dd><dt>Tone B</dt><dd>' + esc(POS[s.b.i].n) + ' · ' + octName(s.b.o) + ' · ' + fmt(fb, 2) + ' Hz</dd>' +
+    '<dt>Frequency ratio B/A</dt><dd>' + fmt(ratio, 5) + '</dd><dt>Exact ratio (model)</dt><dd>' + exact + '</dd><dt>Interval</dt><dd>' + fmt(cents, 2) + ' cents</dd><dt>12-TET interval</dt><dd>' + tet + ' cents</dd><dt>Model − 12-TET</dt><dd>' + (cents - tet >= 0 ? '+' : '') + fmt(cents - tet, 2) + ' cents</dd><dt>Difference frequency</dt><dd>' + fmt(Math.abs(fb - fa), 2) + ' Hz (beat rate if both sounded close in pitch)</dd>';
+  drawExplore();
+}
+function drawExplore() {
+  const s = exSel(), fa = freqOf(s.a.i, s.a.o), fb = freqOf(s.b.i, s.b.o);
+  const f = fitCanvas($('#exAxis')); if (f) {
+    const { g, w, h } = f, lo = Math.log2(state.sa / 2), hi = Math.log2(state.sa * 4), X = fq => 16 + (Math.log2(fq) - lo) / (hi - lo) * (w - 32);
+    g.clearRect(0, 0, w, h); g.strokeStyle = C.grid; g.beginPath(); g.moveTo(16, h - 30); g.lineTo(w - 16, h - 30); g.stroke();
+    for (let o = -1; o <= 1; o++) for (let i = 0; i < 12; i++) { const x = X(freqOf(i, o)); g.strokeStyle = i === 0 ? C.gold : C.grid; g.lineWidth = i === 0 ? 2 : 1; g.beginPath(); g.moveTo(x, h - 38); g.lineTo(x, h - 22); g.stroke(); if (i === 0) { g.fillStyle = C.muted; g.font = '10px system-ui'; g.textAlign = 'center'; g.fillText('Sa', x, h - 8); } }
+    [[fa, C.teal, 'A'], [fb, C.terra, 'B']].forEach(([fq, col, lb]) => { const x = X(fq); g.strokeStyle = col; g.lineWidth = 3; g.beginPath(); g.moveTo(x, 26); g.lineTo(x, h - 30); g.stroke(); g.fillStyle = col; g.font = 'bold 12px system-ui'; g.textAlign = 'center'; g.fillText(lb + ' ' + fq.toFixed(1) + ' Hz', clamp(x, 40, w - 40), 14); });
+    g.strokeStyle = C.muted; g.lineWidth = 1.5; g.beginPath(); g.moveTo(X(fa), h - 52); g.lineTo(X(fb), h - 52); g.stroke(); g.fillStyle = C.ink; g.textAlign = 'center'; g.fillText(fmt(1200 * Math.log2(fb / fa), 1) + ' ¢', (X(fa) + X(fb)) / 2, h - 58);
+  }
+  const f2 = fitCanvas($('#exWaveCv')); if (f2) {
+    const { g, w, h } = f2; g.clearRect(0, 0, w, h); g.strokeStyle = C.grid; g.beginPath(); g.moveTo(0, h / 2); g.lineTo(w, h / 2); g.stroke();
+    const dur = 0.03, amp = h / 2 - 8;
+    [[fa, C.teal, .5, 1.2], [fb, C.terra, .5, 1.2], null].forEach(it => {
+      g.strokeStyle = it ? it[1] : C.ink; g.lineWidth = it ? 1.2 : 2; g.beginPath();
+      for (let x = 0; x <= w; x += 1) { const t = x / w * dur; const v = it ? .5 * Math.sin(2 * Math.PI * it[0] * t) : .5 * (Math.sin(2 * Math.PI * fa * t) + Math.sin(2 * Math.PI * fb * t)); const y = h / 2 - v * amp; x ? g.lineTo(x, y) : g.moveTo(x, y); }
+      g.stroke();
+    });
+  }
+}
+function renderExploreTables() {
+  const tb = $('#exModelBody'); tb.innerHTML = '';
+  POS.forEach((p, i) => {
+    const tet = freqOf(i, 0, 'et'), cj = centsOf('ji', i), cp = centsOf('py', i);
+    const tr = document.createElement('tr'); tr.innerHTML = '<td>' + esc(p.n) + '</td><td>' + fmt(tet, 2) + '</td><td>' + fracText('ji', i) + '</td><td>' + fmt(cj, 1) + '</td><td>' + (cj - i * 100 >= 0 ? '+' : '') + fmt(cj - i * 100, 1) + '</td><td>' + fmt(freqOf(i, 0, 'ji'), 2) + '</td><td>' + fracText('py', i) + '</td><td>' + fmt(cp, 1) + '</td><td>' + (cp - i * 100 >= 0 ? '+' : '') + fmt(cp - i * 100, 1) + '</td><td>' + fmt(freqOf(i, 0, 'py'), 2) + '</td>';
+    tb.appendChild(tr);
+  });
+}
+function updateCalc() {
+  const a = parseFloat($('#calcA').value), b = parseFloat($('#calcB').value), o = $('#calcOut');
+  if (!(a > 0) || !(b > 0)) { o.innerHTML = '<dt>Result</dt><dd>Enter two positive frequencies.</dd>'; return; }
+  const c = 1200 * Math.log2(b / a), fold = ((c % 1200) + 1200) % 1200, m = mapNearest(b);
+  o.innerHTML = '<dt>Ratio 2/1</dt><dd>' + fmt(b / a, 5) + '</dd><dt>Interval</dt><dd>' + fmt(c, 2) + ' cents</dd><dt>Octave-folded</dt><dd>' + fmt(fold, 2) + ' cents</dd><dt>In semitones (12-TET)</dt><dd>' + fmt(c / 100, 3) + '</dd><dt>Frequency 2 vs your Sa</dt><dd>' + esc(POS[m.pos].n) + ' (' + octName(m.oct) + '), ' + (m.dev >= 0 ? '+' : '') + fmt(m.dev, 1) + ' ¢ (' + MODELS[state.model].name + ')</dd>';
+}
+Pages.shruti = { enter() { updateExplore(); updateCalc(); }, resize() { drawExplore(); } };
+
+/* ---------- CSV ---------- */
+function downloadCSV(name, headers, rows) {
+  const q = v => { v = v === null || v === undefined ? '' : String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  const csv = [headers.join(','), ...rows.map(r => headers.map(h => q(r[h])).join(','))].join('\r\n');
+  const url = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' }));
+  const a = document.createElement('a'); a.href = url; a.download = name + '_' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19) + '.csv'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
+/* ---------- LAB: pitch recording ---------- */
+const Lab = { rec: false, frames: [], trackers: null, t0: 0, dur: 0, runs: [], rows: [], nextId: 1, timer: null, last: null, expected: null };
+const RUN_COLORS = ['#2f7f7a', '#a8472f', '#b45a12', '#5c7a2f', '#7a5c2f', '#2f5c7a', '#8a2f5c', '#555555'];
+function pitchStats(frames, key, expected) {
+  const fr = frames.filter(f => f[key] != null), n = frames.length, v = fr.length;
+  const out = { frames: n, voiced: v, voicedPct: n ? 100 * v / n : 0, median: NaN, mean: NaN, sd: NaN, maxDev: NaN, jumps: 0, octJumps: 0, errMed: NaN, mae: NaN };
+  if (v < 3) return out;
+  const f = fr.map(x => x[key]), med = median(f), cs = f.map(x => 1200 * Math.log2(x / med)), m = cs.reduce((a, b) => a + b, 0) / v;
+  out.median = med; out.mean = f.reduce((a, b) => a + b, 0) / v; out.sd = Math.sqrt(cs.reduce((a, b) => a + (b - m) * (b - m), 0) / (v - 1)); out.maxDev = Math.max(...cs.map(Math.abs));
+  for (let i = 1; i < frames.length; i++) { const a = frames[i - 1][key], b = frames[i][key]; if (a != null && b != null) { const d = Math.abs(1200 * Math.log2(b / a)); if (d > 100) out.jumps++; if (Math.abs(d - 1200) < 100) out.octJumps++; } }
+  if (expected > 0) { out.errMed = 1200 * Math.log2(med / expected); out.mae = f.reduce((a, b) => a + Math.abs(1200 * Math.log2(b / expected)), 0) / v; }
+  return out;
+}
+const labProcOpts = () => ({ gateDb: state.gateDb, minConf: state.minConf });
+async function labStart() {
+  if (!$('#labConsent').checked) { toast('Please tick the consent box first.', 'err'); return; }
+  const dur = clamp(parseFloat($('#labDur').value) || 6, 2, 60); $('#labDur').value = dur;
+  await Mic.start('Acoustic Lab · pitch', $('#labProc').checked);
+  Lab.trackers = { baseline: new PitchTracker('baseline', labProcOpts()), improved: new PitchTracker('improved', labProcOpts()) };
+  Lab.frames = []; Lab.dur = dur; Lab.t0 = performance.now(); Lab.rec = true; Lab.finishing = false;
+  const e = parseFloat($('#labExp').value); Lab.expected = e > 0 ? e : null;
+  $('#labRec').disabled = true; $('#labRecStop').disabled = false;
+  micHandlers['Acoustic Lab · pitch'] = buf => {
+    if (!Lab.rec) return; const sr = Engine.ctx.sampleRate, t = (performance.now() - Lab.t0) / 1000;
+    const rb = Lab.trackers.baseline.process(buf, sr), ri = Lab.trackers.improved.process(buf, sr);
+    Lab.frames.push({ t, db: ri.db, fb: rb.voiced ? rb.freq : null, fi: ri.voiced ? ri.freq : null });
+    $('#labProg').style.width = clamp(t / Lab.dur * 100, 0, 100) + '%'; $('#labStat').textContent = 'Recording… ' + t.toFixed(1) + ' / ' + Lab.dur + ' s';
+  };
+  Lab.timer = setTimeout(() => labFinish('complete'), dur * 1000 + 150);
+}
+function labFinish(why) {
+  if (!Lab.rec || Lab.finishing) return; Lab.finishing = true; Lab.rec = false; clearTimeout(Lab.timer); Mic.stop();
+  $('#labRec').disabled = false; $('#labRecStop').disabled = true; $('#labProg').style.width = '0';
+  if (Lab.frames.length < 5) { $('#labStat').textContent = 'Recording too short — no result stored.'; return; }
+  const id = Lab.nextId++, now = new Date().toISOString(), actual = Lab.frames[Lab.frames.length - 1].t, dbs = Lab.frames.map(f => f.db).sort((a, b) => a - b);
+  const cond = $('#labCond').value.trim() || '(none)', base = { id, timestamp: now, label: cond, noise: $('#labNoise').value, room: $('#labRoom').value, browserProcessing: $('#labProc').checked ? 'on' : 'off', duration_s: actual.toFixed(2), sampleRate: Engine.ctx.sampleRate, expectedHz: Lab.expected, version: ALGO_VERSION, gateDb: state.gateDb, minConf: state.minConf };
+  const meanDb = Lab.frames.reduce((a, f) => a + f.db, 0) / Lab.frames.length, p5 = dbs[Math.floor(dbs.length * 0.05)];
+  ['baseline', 'improved'].forEach(alg => {
+    const s = pitchStats(Lab.frames, alg === 'baseline' ? 'fb' : 'fi', Lab.expected);
+    Lab.rows.push(Object.assign({}, base, { algorithm: alg, frames: s.frames, voicedPct: s.voicedPct.toFixed(1), medianHz: isFinite(s.median) ? s.median.toFixed(3) : '', meanHz: isFinite(s.mean) ? s.mean.toFixed(3) : '', sdCents: isFinite(s.sd) ? s.sd.toFixed(2) : '', maxDevCents: isFinite(s.maxDev) ? s.maxDev.toFixed(1) : '', jumps100c: s.jumps, octaveJumps: s.octJumps, errMedianCents: isFinite(s.errMed) ? s.errMed.toFixed(2) : '', meanAbsErrCents: isFinite(s.mae) ? s.mae.toFixed(2) : '', meanLevelDbfs: meanDb.toFixed(1), quietest5pctDbfs: p5.toFixed(1) }));
+  });
+  Lab.runs.push({ id, frames: Lab.frames.slice(), expected: Lab.expected, color: RUN_COLORS[(id - 1) % RUN_COLORS.length] }); Lab.last = Lab.runs[Lab.runs.length - 1];
+  $('#labStat').textContent = 'Run ' + id + ' stored (' + (why === 'complete' ? 'complete' : 'stopped early') + '). Improved voiced ' + Lab.rows[Lab.rows.length - 1].voicedPct + '%.';
+  renderLab(); drawLabCharts();
+}
+const LAB_COLS = ['id', 'algorithm', 'label', 'noise', 'room', 'voicedPct', 'medianHz', 'sdCents', 'jumps100c', 'octaveJumps', 'errMedianCents', 'meanLevelDbfs'];
+function renderLab() {
+  const tb = $('#labBody'); tb.innerHTML = Lab.rows.length ? '' : '<tr><td colspan="12" class="empty">No measurements yet. Tick consent and press “Record measurement”.</td></tr>';
+  Lab.rows.forEach(r => { const tr = document.createElement('tr'); tr.innerHTML = LAB_COLS.map(c => '<td>' + esc(r[c] === '' || r[c] === null || r[c] === undefined ? '—' : r[c]) + '</td>').join(''); tb.appendChild(tr); });
+  const lg = $('#labCompareLegend'); lg.innerHTML = Lab.runs.map(r => '<span><i style="background:' + r.color + '"></i>Run ' + r.id + '</span>').join('');
+}
+function drawLabCharts() {
+  const run = Lab.rec ? { frames: Lab.frames, expected: Lab.expected } : Lab.last, c1 = $('#labPitchChart'), c2 = $('#labAmpChart'), c3 = $('#labCompare');
+  if (run && run.frames.length) {
+    const fr = run.frames, xmax = Math.max(Lab.rec ? Lab.dur : 0, fr[fr.length - 1].t, 1);
+    const fi = fr.filter(f => f.fi != null).map(f => f.fi), ref = run.expected || (fi.length ? median(fi) : null);
+    if (ref) {
+      const cv = k => fr.map(f => [f.t, f[k] != null ? 1200 * Math.log2(f[k] / ref) : null]);
+      plot(c1, [{ pts: cv('fb'), color: C.terra, dots: true }, { pts: cv('fi'), color: C.teal }], { xmin: 0, xmax, ymin: -300, ymax: 300, xunit: ' s', hlines: [-200, -100, 0, 100, 200].map(y => ({ y, label: (y > 0 ? '+' : '') + y + ' ¢', bold: y === 0 })), empty: 'No voiced frames' });
+    } else plot(c1, [], { xmin: 0, xmax, ymin: -300, ymax: 300, empty: 'No voiced frames yet' });
+    plot(c2, [{ pts: fr.map(f => [f.t, f.db]), color: C.saffron }], { xmin: 0, xmax, ymin: -90, ymax: 0, hlines: [-80, -60, -40, -20, 0].map(y => ({ y, label: y + ' dB' })), xunit: ' s' });
+  } else {
+    plot(c1, [], { xmin: 0, xmax: 1, ymin: -300, ymax: 300, empty: 'Pitch deviation (cents, vs expected or median) appears here after a recording' });
+    plot(c2, [], { xmin: 0, xmax: 1, ymin: -90, ymax: 0, empty: 'Input level (dBFS) over time' });
+  }
+  const series = Lab.runs.slice(-8).map(r => { const fi = r.frames.filter(f => f.fi != null).map(f => f.fi), m = median(fi); return { pts: r.frames.map(f => [f.t, f.fi != null ? 1200 * Math.log2(f.fi / m) : null]), color: r.color }; });
+  const xm = Math.max(1, ...Lab.runs.map(r => r.frames[r.frames.length - 1].t));
+  plot(c3, series, { xmin: 0, xmax: xm, ymin: -150, ymax: 150, hlines: [-100, -50, 0, 50, 100].map(y => ({ y, label: (y > 0 ? '+' : '') + y + ' ¢', bold: y === 0 })), empty: 'Record several runs to compare stability' });
+}
+const LAB_CSV = ['id', 'timestamp', 'algorithm', 'version', 'label', 'noise', 'room', 'browserProcessing', 'duration_s', 'sampleRate', 'frames', 'voicedPct', 'expectedHz', 'medianHz', 'meanHz', 'sdCents', 'maxDevCents', 'jumps100c', 'octaveJumps', 'errMedianCents', 'meanAbsErrCents', 'meanLevelDbfs', 'quietest5pctDbfs', 'gateDb', 'minConf'];
+
+/* ---------- LAB: reverberation ---------- */
+const Rev = { rows: [], nextId: 1, running: false, abort: false, last: null, timer: null, src: null };
+function revRow(o) { const r = Object.assign({ id: Rev.nextId++, timestamp: new Date().toISOString() }, o); Rev.rows.push(r); renderRev(); return r; }
+function renderRev() {
+  const tb = $('#revBody'); tb.innerHTML = Rev.rows.length ? '' : '<tr><td colspan="11" class="empty">No decay-time measurements yet.</td></tr>';
+  Rev.rows.forEach(r => { const tr = document.createElement('tr'); tr.innerHTML = [r.id, r.source, r.label, r.known, r.rt, r.errPct, r.floor, r.L0, r.range, r.r2, r.status].map(v => '<td>' + esc(v === undefined || v === null || v === '' ? '—' : v) + '</td>').join(''); tb.appendChild(tr); });
+}
+function drawRev() {
+  const r = Rev.last, c = $('#revChart');
+  if (!r) { plot(c, [], { xmin: 0, xmax: 1, ymin: -100, ymax: 0, empty: 'Decay curve (level in dBFS vs time) appears here after an experiment' }); return; }
+  const t0 = r.tStart, pts = r.t.map((t, i) => [t - t0, r.db[i]]), xmax = r.t[r.t.length - 1] - t0;
+  plot(c, [{ pts, color: C.saffron }], { xmin: -1.2, xmax: Math.max(xmax, 1), ymin: Math.min(-100, Math.floor(Math.min(...r.db) / 10) * 10), ymax: 0, hlines: [-80, -60, -40, -20, 0].map(y => ({ y, label: y + ' dB' })), xunit: ' s',
+    extra: (g, X, Y) => { const e = r.est; if (e && e.ok) { g.strokeStyle = C.teal; g.lineWidth = 3; g.setLineDash([6, 4]); g.beginPath(); g.moveTo(X(e.t5 - t0), Y(e.slope * e.t5 + e.icpt)); g.lineTo(X(e.t25 - t0), Y(e.slope * e.t25 + e.icpt)); g.stroke(); g.setLineDash([]); }
+      if (e && e.floor !== undefined) { g.strokeStyle = C.terra; g.setLineDash([3, 3]); g.beginPath(); g.moveTo(X(-1.2), Y(e.floor)); g.lineTo(X(xmax), Y(e.floor)); g.stroke(); g.setLineDash([]); } } });
+}
+function revSummary(est, label, source, known) {
+  const row = { source, label, known: known || '', floor: fmt(est.floor, 1), L0: fmt(est.L0, 1), range: fmt(est.range, 1) };
+  if (est.ok) { row.rt = fmt(est.rt, 2); row.r2 = fmt(est.r2, 3); row.status = est.r2 >= 0.9 ? 'OK (uncalibrated T20-style)' : 'Low linearity — treat with caution'; if (known) row.errPct = fmt((est.rt - known) / known * 100, 1); }
+  else { row.rt = 'n/a'; row.status = est.why; }
+  return row;
+}
+async function revRun() {
+  if (!$('#revConsent').checked) { toast('Please tick the consent box first.', 'err'); return; }
+  const burst = clamp(parseFloat($('#revBurst').value) || 1, 0.3, 3), tail = clamp(parseFloat($('#revTail').value) || 3, 1, 8), level = parseFloat($('#revLevel').value), label = $('#revLabel').value.trim() || '(none)';
+  Engine.stopAll();
+  await Mic.start('Acoustic Lab · reverb', false);
+  Rev.running = true; Rev.abort = false; $('#revRun').disabled = true; $('#revStop').disabled = false;
+  const ctx = Engine.ctx, sr = ctx.sampleRate, t = [], db = [], pre = 1.2, T0 = performance.now() / 1000;
+  const poll = () => { if (!Mic.an) return; Mic.an.getFloatTimeDomainData(Mic.buf); t.push(performance.now() / 1000); db.push(rmsDb(Mic.buf.subarray(Mic.buf.length - 1024))); };
+  const sleepAb = async ms => { const end = performance.now() + ms; while (performance.now() < end && !Rev.abort) await sleep(Math.max(1, Math.min(100, end - performance.now()))); };
+  Rev.timer = setInterval(poll, 10);
+  const status = s => $('#revStatus').textContent = s;
+  const cleanup = () => { clearInterval(Rev.timer); try { if (Rev.src) Rev.src.stop(); } catch (e) {} Rev.src = null; Mic.stop(); Rev.running = false; $('#revRun').disabled = false; $('#revStop').disabled = true; };
+  try {
+    status('Measuring background noise (stay quiet)…'); await sleepAb(pre * 1000); if (Rev.abort) throw 0;
+    const n = Math.round(sr * burst), buf = ctx.createBuffer(1, n, sr), d = buf.getChannelData(0); for (let i = 0; i < n; i++) d[i] = clamp(gauss(Math.random) * 0.25, -1, 1);
+    const src = ctx.createBufferSource(), gn = ctx.createGain(); gn.gain.value = level; src.buffer = buf; src.connect(gn); gn.connect(Engine.analyser); Rev.src = src;
+    const tStart = performance.now() / 1000; src.start(); status('Playing noise burst… then recording the decay.');
+    await sleepAb((burst + tail) * 1000); if (Rev.abort) throw 0;
+    clearInterval(Rev.timer); const tt = t.map(x => x - T0), est = estimateRT(tt, db, tStart - T0);
+    Rev.last = { t: tt, db, tStart: tStart - T0, est }; revRow(revSummary(est, label, 'microphone')); drawRev();
+    status(est.ok ? 'Estimated decay time (RT60-equivalent, uncalibrated): ' + fmt(est.rt, 2) + ' s. Repeat 3× and compare.' : est.why);
+  } catch (e) { if (e !== 0) toast(e.message || String(e), 'err'); status('Experiment aborted.'); }
+  cleanup();
+}
+function revSelfCheck() {
+  const sr = 48000, rng = mulberry32(2024), results = [];
+  [0.4, 0.8, 1.5, 2.5].forEach(rt => {
+    const pre = 1, burst = 1, tail = Math.max(3, rt * 1.6), n = Math.round(sr * (pre + burst + tail)), x = new Float32Array(n), k = Math.log(1000) / rt;  // amplitude ×10^(−3 t/RT) → −60 dB at RT
+    for (let i = 0; i < n; i++) { const tt = i / sr; let a; if (tt < pre) a = 0; else if (tt < pre + burst) a = 0.1; else a = 0.1 * Math.exp(-k * (tt - pre - burst)); x[i] = gauss(rng) * a + gauss(rng) * 1e-4; }
+    const fd = frameDb(x, sr, 1024, 480), est = estimateRT(fd.t, fd.db, pre);
+    revRow(revSummary(est, 'self-check', 'synthetic', rt)); results.push(est); if (rt === 0.8) Rev.last = { t: fd.t, db: fd.db, tStart: pre, est };
+  });
+  drawRev(); $('#revStatus').textContent = 'Self-check done: 4 synthetic decays with known RT60 were analysed (see rows with source “synthetic”). This validates the estimator arithmetic only.';
+}
+const REV_CSV = ['id', 'timestamp', 'source', 'label', 'known', 'rt', 'errPct', 'floor', 'L0', 'range', 'r2', 'status'];
+Pages.lab = {
+  enter() { renderLab(); renderRev(); drawLabCharts(); drawRev(); },
+  resize() { drawLabCharts(); drawRev(); },
+  draw() { drawScope($('#labScope'), Engine.analyser, Math.max(64, Math.round(3 * (Engine.ctx ? Engine.ctx.sampleRate : 48000) / Engine.lastFreq)), 'No tone playing', Engine.active.size > 0); if (Lab.rec) drawLabCharts(); }
+};
+
+/* ---------- TESTS ---------- */
+const TDEF = { tFreqs: '110, 146.83, 220, 240, 261.63, 330, 440, 523.25, 880', tSr: '48000', tFrame: '4096', tDur: '1.5', tSignal: 'sine', tSnr: 'none', tSeed: '12345', tAlgo: 'both', tMinConf: '0.8', tThr: '5', tVoiced: '90' };
+const TestState = { rows: [], cfg: null };
+function readTestCfg() {
+  const freqs = $('#tFreqs').value.split(/[,\s]+/).filter(Boolean).map(Number);
+  if (!freqs.length || freqs.some(f => !isFinite(f) || f < 80 || f > 900)) return { error: 'Test frequencies must be numbers between 80 and 900 Hz.' };
+  const cfg = { algorithmVersion: ALGO_VERSION, sampleRate: +$('#tSr').value, frameSize: +$('#tFrame').value, hop: +$('#tFrame').value / 2, durationSec: parseFloat($('#tDur').value), signal: $('#tSignal').value, snrDb: $('#tSnr').value === 'none' ? null : +$('#tSnr').value, noiseSeed: parseInt($('#tSeed').value, 10) || 0, algorithms: $('#tAlgo').value === 'both' ? ['baseline', 'improved'] : [$('#tAlgo').value], minConfidence: parseFloat($('#tMinConf').value), silenceGateDb: -45, searchRangeHz: [FMIN, FMAX], thresholdCents: parseFloat($('#tThr').value), minVoicedPct: parseFloat($('#tVoiced').value), frequenciesHz: freqs };
+  if (!(cfg.durationSec >= 0.5) || !(cfg.thresholdCents > 0) || !(cfg.minVoicedPct > 0) || !(cfg.minConfidence >= 0.5)) return { error: 'Please check the numeric settings.' };
+  return cfg;
+}
+function showTestCfg() { const c = readTestCfg(); $('#tSettings').textContent = c.error ? c.error : JSON.stringify(c, null, 2); }
+async function runTests() {
+  const cfg = readTestCfg(); if (cfg.error) { toast(cfg.error, 'err'); return; }
+  $('#tRun').disabled = true; TestState.rows = []; TestState.cfg = cfg; const tb = $('#tBody'); tb.innerHTML = ''; let k = 0; const total = cfg.frequenciesHz.length * cfg.algorithms.length;
+  for (let fi = 0; fi < cfg.frequenciesHz.length; fi++) {
+    const f = cfg.frequenciesHz[fi], rng = mulberry32(cfg.noiseSeed + fi * 7919), x = synthTone(f, cfg.sampleRate, cfg.durationSec, cfg.signal, cfg.snrDb, rng);
+    for (const alg of cfg.algorithms) {
+      const tr = new PitchTracker(alg, { gateDb: cfg.silenceGateDb, minConf: cfg.minConfidence }); const est = []; let tot = 0;
+      for (let s = 0; s + cfg.frameSize <= x.length; s += cfg.hop) { const r = tr.process(x.subarray(s, s + cfg.frameSize), cfg.sampleRate); tot++; if (r.voiced) est.push(r.freq); }
+      const det = est.length ? median(est) : NaN, err = det - f, rel = err / f * 100, cents = 1200 * Math.log2(det / f), vp = tot ? 100 * est.length / tot : 0;
+      const pass = isFinite(cents) && Math.abs(cents) <= cfg.thresholdCents && vp >= cfg.minVoicedPct;
+      const row = { run: ++k, algorithm: alg, expectedHz: f, detectedHz: det, errHz: err, relErrPct: rel, centsErr: cents, voicedPct: vp, result: pass ? 'PASS' : 'FAIL' }; TestState.rows.push(row);
+      const trw = document.createElement('tr'); trw.innerHTML = '<td>' + row.run + '</td><td>' + alg + '</td><td>' + fmt(f, 2) + '</td><td>' + fmt(det, 3) + '</td><td>' + fmt(err, 3) + '</td><td>' + fmt(rel, 3) + '</td><td>' + fmt(cents, 2) + '</td><td>' + fmt(vp, 0) + '</td><td class="' + (pass ? 'pass' : 'fail') + '">' + row.result + '</td>'; tb.appendChild(trw);
+      $('#tProg').style.width = (k / total * 100) + '%'; await sleep(0);
+    }
+  }
+  const sm = cfg.algorithms.map(a => { const r = TestState.rows.filter(x => x.algorithm === a), ok = r.filter(x => x.result === 'PASS').length, ac = r.filter(x => isFinite(x.centsErr)).map(x => Math.abs(x.centsErr)); return '<b>' + a + '</b>: ' + ok + ' / ' + r.length + ' passed · mean |error| ' + fmt(ac.reduce((p, q) => p + q, 0) / (ac.length || NaN), 2) + ' ¢ · max |error| ' + fmt(ac.length ? Math.max(...ac) : NaN, 2) + ' ¢'; });
+  $('#tSummary').innerHTML = sm.join('<br>') + '<br><span class="small muted">Synthetic, digitally generated signals only (' + cfg.signal + ', ' + (cfg.snrDb === null ? 'no added noise' : 'SNR ' + cfg.snrDb + ' dB, seed ' + cfg.noiseSeed) + ', ' + ALGO_VERSION + ').</span>';
+  $('#tSettings').textContent = JSON.stringify(cfg, null, 2); $('#tExport').disabled = false; $('#tRun').disabled = false; $('#tProg').style.width = '0';
+}
+Pages.tests = { enter() { showTestCfg(); } };
+Pages.research = {}; Pages.about = {};
+
+/* ---------- SIMULATION STUDY (v2) ---------- */
+const Study = { rows: [], cfg: null, N: 0, hop: 0, running: false, abort: false };
+const METH = [['baseline', 'Baseline (autocorrelation)', C.terra], ['improved', 'Improved v1 (YIN + smoothing)', C.gold], ['drone', 'Drone-aware (proposed)', C.teal], ['drone_room', 'Drone-aware + room-adaptive', '#5c7a2f']];
+const METRICS = { rpa50: [1, 'RPA50'], rpa20: [1, 'RPA20'], recallPct: [1, 'Reported'], falseAlarmPct: [-1, 'False alarm'], octaveErrPct: [-1, 'Octave errors'], medAbsErrCents: [-1, 'Median |error|'] };
+const num = v => (v === '' || v === null || v === undefined) ? NaN : +v;
+const mean = a => { a = a.filter(isFinite); return a.length ? a.reduce((x, y) => x + y, 0) / a.length : NaN; };
+const medianOf = a => { a = a.filter(isFinite); return a.length ? median(a) : NaN; };
+const vdrLabel = v => v === 'none' ? 'No drone' : 'Voice ' + (+v > 0 ? '+' : '') + v + ' dB';
+const snrLabel = v => v === 'none' ? 'No noise' : 'SNR ' + v + ' dB';
+const rtLabel = v => +v === 0 ? 'Dry' : v + ' s';
+
+function readStudyCfg() {
+  const f = id => parseFloat($(id).value);
+  const seeds = $('#stSeeds').value.split(/[,\s]+/).filter(Boolean).map(Number);
+  if (!seeds.length || seeds.some(s => !Number.isInteger(s))) return { error: 'Seeds must be whole numbers, for example: 101, 102, 103.' };
+  const pick = (cls, cv) => $$('.' + cls + ':checked').map(e => cv(e.value));
+  const vdr = pick('stVdr', v => v === 'none' ? null : +v), snr = pick('stSnr', v => v === 'none' ? null : +v), rt = pick('stRt', v => +v), methods = pick('stMeth', v => v);
+  if (!vdr.length || !snr.length || !rt.length) return { error: 'Select at least one level for drone, noise and room.' };
+  if (!methods.length) return { error: 'Select at least one method.' };
+  const cfg = { sa: f('#stSa'), sr: +$('#stSr').value, seeds, vibrato: f('#stVib'), calSecs: f('#stCal'), drr: f('#stDrr'), vdr, snr, rt, methods, subAlpha: f('#stAlpha'), beta: f('#stBeta'), minResVsDrone: f('#stMinRes'), minConf: f('#stMinConf'), gateDb: f('#stGate') };
+  const rng = [['sa', 100, 400, 'Sa'], ['vibrato', 0, 100, 'Vibrato'], ['calSecs', 1, 10, 'Calibration length'], ['drr', -10, 20, 'Direct-to-reverberant'], ['subAlpha', 0.5, 6, 'α'], ['beta', 0, 0.5, 'β'], ['minResVsDrone', 0, 2, 'Min. residual'], ['minConf', 0.5, 0.95, 'Min. confidence'], ['gateDb', -70, -20, 'Silence gate']];
+  for (const [k, lo, hi, nm] of rng) if (!(cfg[k] >= lo && cfg[k] <= hi)) return { error: nm + ' must be between ' + lo + ' and ' + hi + '.' };
+  const runs = seeds.length * vdr.length * snr.length * rt.length;
+  if (runs > 400) return { error: 'That is ' + runs + ' simulated recordings — please select fewer than 400.' };
+  cfg.runs = runs; return cfg;
+}
+function setChecks(cls, vals) { $$('.' + cls).forEach(e => e.checked = vals.includes(e.value)); }
+function studyPreset(kind) {
+  if (kind === 'quick') { setChecks('stVdr', ['none', '0']); setChecks('stSnr', ['none', '10']); setChecks('stRt', ['0', '1.5']); $('#stSeeds').value = '101, 102'; }
+  else { setChecks('stVdr', ['none', '6', '0', '-3']); setChecks('stSnr', ['none', '20', '10']); setChecks('stRt', ['0', '0.6', '1.5']); $('#stSeeds').value = '101, 102, 103'; }
+  $('#stSr').value = '16000';
+}
+async function studyRun() {
+  if (Study.running) return;
+  const cfg = readStudyCfg(); if (cfg.error) { toast(cfg.error, 'err'); return; }
+  Study.running = true; Study.abort = false; $('#stRun').disabled = true; $('#stAbort').disabled = false;
+  const t0 = performance.now();
+  try {
+    const res = await runGrid(cfg, {
+      progress: (d, t) => { $('#stProg').style.width = (d / t * 100) + '%'; const el = (performance.now() - t0) / 1000; $('#stStatus').textContent = 'Simulating… ' + d + ' / ' + t + ' recordings (' + el.toFixed(0) + ' s elapsed, about ' + Math.max(0, el / d * (t - d)).toFixed(0) + ' s left).'; },
+      abort: () => Study.abort, yield: () => sleep(0)
+    });
+    Study.rows = res.rows; Study.cfg = cfg; Study.N = res.N; Study.hop = res.hop;
+    $('#stStatus').textContent = (res.aborted ? 'Aborted — partial results shown (' : 'Done — ') + res.rows.length + ' result rows in ' + ((performance.now() - t0) / 1000).toFixed(1) + ' s.';
+    renderStudy();
+  } catch (e) { toast(e.message || String(e), 'err'); $('#stStatus').textContent = 'Run failed: ' + (e.message || e); }
+  Study.running = false; $('#stRun').disabled = false; $('#stAbort').disabled = true; $('#stProg').style.width = '0';
+}
+function condLabel(r) { return 'seed ' + r.seed + ' · ' + vdrLabel(r.vdrDb) + ' · ' + snrLabel(r.snrDb) + ' · RT60 ' + rtLabel(r.rt60); }
+function renderStudy() {
+  const rows = Study.rows, box = $('#stResults'); box.hidden = rows.length === 0; if (!rows.length) return;
+  const present = METH.filter(m => rows.some(r => r.method === m[0]));
+  // 2. summary
+  const sb = $('#stSumBody'); sb.innerHTML = '';
+  present.forEach(([m, name]) => {
+    const R = rows.filter(r => r.method === m), g = k => mean(R.map(r => num(r[k]))), tr = document.createElement('tr');
+    tr.innerHTML = '<td><b>' + esc(name) + '</b></td><td>' + fmt(g('rpa50'), 1) + '</td><td>' + fmt(g('rpa20'), 1) + '</td><td>' + fmt(g('recallPct'), 1) + '</td><td>' + fmt(g('falseAlarmPct'), 1) + '</td><td>' + fmt(g('octaveErrPct'), 1) + '</td><td>' + fmt(medianOf(R.map(r => num(r.medAbsErrCents))), 1) + '</td><td>' + R.length + '</td>'; sb.appendChild(tr);
+  });
+  // 3. breakdown
+  const metric = $('#stMetric').value, dir = METRICS[metric][0], bd = $('#stBreak'); bd.innerHTML = '';
+  const factors = [['vdrDb', 'Drone level', vdrLabel], ['snrDb', 'Background noise', snrLabel], ['rt60', 'Room decay time', rtLabel]];
+  factors.forEach(([key, title, lab]) => {
+    const levels = []; rows.forEach(r => { if (!levels.includes(r[key])) levels.push(r[key]); });
+    let h = '<h4 style="margin:14px 0 6px">' + title + '</h4><div class="tablewrap"><table class="data"><thead><tr><th>' + title + '</th>' + present.map(p => '<th>' + esc(p[1]) + '</th>').join('') + '</tr></thead><tbody>';
+    levels.forEach(lv => {
+      const vals = present.map(([m]) => mean(rows.filter(r => r.method === m && r[key] === lv).map(r => num(r[metric])))), ok = vals.filter(isFinite);
+      const best = ok.length ? (dir > 0 ? Math.max(...ok) : Math.min(...ok)) : NaN;
+      h += '<tr><td>' + esc(lab(lv)) + '</td>' + vals.map(v => '<td' + (v === best && ok.length > 1 ? ' class="pass"' : '') + '>' + fmt(v, 1) + '</td>').join('') + '</tr>';
+    });
+    bd.insertAdjacentHTML('beforeend', h + '</tbody></table></div>');
+  });
+  bd.insertAdjacentHTML('beforeend', '<p class="hint">Bold green = best method in that row (' + (dir > 0 ? 'highest' : 'lowest') + ' value). Differences of a few points can be noise — check the paired comparison and run more seeds.</p>');
+  // chart
+  const dl = []; rows.forEach(r => { if (!dl.includes(r.vdrDb)) dl.push(r.vdrDb); });
+  groupedBars($('#stChart'), dl.map(v => vdrLabel(v)), present.map(([m, n, col]) => ({ color: col, vals: dl.map(v => mean(rows.filter(r => r.method === m && r.vdrDb === v).map(r => num(r.rpa50)))) })), 100);
+  $('#stLegend').innerHTML = present.map(p => '<span><i style="background:' + p[2] + '"></i>' + esc(p[1]) + '</span>').join('');
+  // 4. paired
+  const byRun = {}; rows.forEach(r => { (byRun[r.runId] = byRun[r.runId] || {})[r.method] = r; });
+  const PAIRS = [['H1', 'improved', 'baseline', 'All conditions', () => true], ['H2', 'drone', 'improved', 'Drone present', r => r.vdrDb !== 'none'], ['H3', 'drone_room', 'drone', 'Reverberant room (RT60 > 0)', r => +r.rt60 > 0], ['H3b', 'drone_room', 'drone', 'Reverberant room, drone present', r => +r.rt60 > 0 && r.vdrDb !== 'none']];
+  const pb = $('#stPairBody'); pb.innerHTML = '';
+  PAIRS.forEach(([hy, A, B, sub, flt]) => {
+    const d = [], fa = []; Object.values(byRun).forEach(o => { if (o[A] && o[B] && flt(o[A])) { d.push(num(o[A].rpa50) - num(o[B].rpa50)); fa.push(num(o[A].falseAlarmPct) - num(o[B].falseAlarmPct)); } });
+    const nm = m => METH.find(x => x[0] === m)[1], tr = document.createElement('tr');
+    if (!d.length) { tr.innerHTML = '<td>' + hy + '</td><td>' + esc(nm(A)) + ' vs ' + esc(nm(B)) + '</td><td>' + sub + '</td><td colspan="7" class="muted">Not available with the selected methods/conditions.</td>'; }
+    else { const w = d.filter(x => x > 1).length, l = d.filter(x => x < -1).length;
+      tr.innerHTML = '<td>' + hy + '</td><td>' + esc(nm(A)) + ' vs ' + esc(nm(B)) + '</td><td>' + sub + '</td><td>' + d.length + '</td><td>' + (mean(d) >= 0 ? '+' : '') + fmt(mean(d), 2) + '</td><td>' + fmt(medianOf(d), 2) + '</td><td>' + w + '</td><td>' + l + '</td><td>' + (d.length - w - l) + '</td><td>' + (mean(fa) >= 0 ? '+' : '') + fmt(mean(fa), 2) + '</td>'; }
+    pb.appendChild(tr);
+  });
+  // 5. detail
+  const tb = $('#stBody'); tb.innerHTML = '';
+  rows.forEach(r => { const tr = document.createElement('tr'); tr.innerHTML = [r.runId, r.seed, vdrLabel(r.vdrDb), snrLabel(r.snrDb), rtLabel(r.rt60), METH.find(x => x[0] === r.method)[1], r.rpa50, r.rpa20, r.recallPct, r.octaveErrPct, r.medAbsErrCents, r.falseAlarmPct].map(v => '<td>' + esc(v === '' ? '—' : v) + '</td>').join(''); tb.appendChild(tr); });
+  // 6. condition list
+  const sel = $('#stCondSel'); sel.innerHTML = ''; const seen = new Set();
+  rows.forEach(r => { if (!seen.has(r.runId)) { seen.add(r.runId); sel.insertAdjacentHTML('beforeend', '<option value="' + r.runId + '">Run ' + r.runId + ' — ' + esc(condLabel(r)) + '</option>'); } });
+  const c = Study.cfg; $('#stCfgJson').textContent = JSON.stringify({ simVersion: SIM_VERSION, algorithmVersion: ALGO_VERSION, frameSize: Study.N, hop: Study.hop, searchRangeHz: [FMIN, FMAX], melodySeconds: +SIM_NOTES.reduce((a, n) => a + n[1], 0).toFixed(2), config: { sa: c.sa, sampleRate: c.sr, seeds: c.seeds, vibratoCents: c.vibrato, calibrationSeconds: c.calSecs, directToReverbDb: c.drr, droneLevelsDb: c.vdr.map(v => v === null ? 'none' : v), noiseSnrDb: c.snr.map(v => v === null ? 'none' : v), rt60: c.rt, methods: c.methods, subAlpha: c.subAlpha, beta: c.beta, minResVsDrone: c.minResVsDrone, minConf: c.minConf, gateDb: c.gateDb } }, null, 2);
+}
+function groupedBars(c, cats, series, ymax) {
+  const f = fitCanvas(c); if (!f) return; const { g, w, h } = f; g.clearRect(0, 0, w, h);
+  const L = 40, R = 10, T = 10, B = 40, pw = w - L - R, ph = h - T - B; g.font = '11px system-ui';
+  for (let v = 0; v <= ymax; v += ymax / 4) { const y = T + ph * (1 - v / ymax); g.strokeStyle = C.grid; g.beginPath(); g.moveTo(L, y); g.lineTo(w - R, y); g.stroke(); g.fillStyle = C.muted; g.textAlign = 'right'; g.textBaseline = 'middle'; g.fillText(v.toFixed(0), L - 6, y); }
+  const gw = pw / cats.length, bw = Math.min(30, gw * 0.8 / series.length);
+  cats.forEach((cat, i) => {
+    const x0 = L + gw * i + gw / 2 - bw * series.length / 2;
+    series.forEach((s, k) => { const v = s.vals[i]; if (isFinite(v)) { const bh = ph * clamp(v, 0, ymax) / ymax; g.fillStyle = s.color; g.fillRect(x0 + k * bw, T + ph - bh, bw - 2, bh); } });
+    g.fillStyle = C.ink; g.textAlign = 'center'; g.textBaseline = 'top'; g.fillText(cat, L + gw * i + gw / 2, h - B + 8);
+  });
+}
+function saveBlob(name, blob) { const url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000); }
+function wavBlob(x, sr) {
+  const n = x.length, buf = new ArrayBuffer(44 + 2 * n), v = new DataView(buf); let pk = 1e-9; for (let i = 0; i < n; i++) pk = Math.max(pk, Math.abs(x[i]));
+  const ws = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  ws(0, 'RIFF'); v.setUint32(4, 36 + 2 * n, true); ws(8, 'WAVE'); ws(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); ws(36, 'data'); v.setUint32(40, 2 * n, true);
+  for (let i = 0; i < n; i++) v.setInt16(44 + 2 * i, Math.round(clamp(x[i] / pk * 0.9, -1, 1) * 32767), true);
+  return new Blob([buf], { type: 'audio/wav' });
+}
+async function studyExportAudio() {
+  const id = +$('#stCondSel').value, r = Study.rows.find(x => x.runId === id); if (!r) { toast('Run the simulation first.', 'err'); return; }
+  const c = Study.cfg, sr = r.sampleRate, N = r.frameSize, hop = r.hop;
+  const base = makeBase({ sa: r.saHz, sr, seed: r.seed, vibrato: r.vibratoCents, calSecs: r.calSecs }), sim = simulate(base, { vdrDb: r.vdrDb === 'none' ? null : +r.vdrDb, snrDb: r.snrDb === 'none' ? null : +r.snrDb, rt: +r.rt60, drrDb: +r.drrDb });
+  const o = { N, hop, sr, gateDb: r.gateDb, minConf: r.minConf, subAlpha: r.subAlpha, beta: r.beta, minResVsDrone: r.minResVsDrone };
+  const tag = 'shruti_run' + id + '_seed' + r.seed;
+  let truth = 'time_s,voiced,f0_hz\r\n'; for (let k = 0; ; k++) { const i = Math.round(k * 0.01 * sr); if (i >= sim.mel.n) break; const v = sim.mel.mask[i] > 0.5; truth += (i / sr).toFixed(3) + ',' + (v ? 1 : 0) + ',' + (v ? (sim.sa * Math.pow(2, sim.mel.truthCents[i] / 1200)).toFixed(3) : '') + '\r\n'; }
+  let tracks = 'method,time_s,f0_hz\r\n'; for (const m of c.methods) { for (const fr of runMethod(m, sim, o)) tracks += m + ',' + ((fr.s + N / 2) / sr).toFixed(4) + ',' + (fr.f === null ? '' : fr.f.toFixed(3)) + '\r\n'; await sleep(0); }
+  saveBlob(tag + '.wav', wavBlob(sim.mix, sr)); await sleep(400);
+  saveBlob(tag + '_truth.csv', new Blob([truth], { type: 'text/csv' })); await sleep(400);
+  saveBlob(tag + '_tracks.csv', new Blob([tracks], { type: 'text/csv' }));
+  toast('Downloaded 3 files for run ' + id + '. Frame size ' + N + ', hop ' + hop + ' samples at ' + sr + ' Hz.');
+}
+Pages.study = { enter() { if (Study.rows.length) renderStudy(); }, resize() { if (Study.rows.length) renderStudy(); } };
+function wireStudy() {
+  $('#stRun').onclick = guard(studyRun); $('#stAbort').onclick = () => { Study.abort = true; };
+  $('#stPreQuick').onclick = () => studyPreset('quick'); $('#stPreStd').onclick = () => studyPreset('std');
+  $('#stMetric').addEventListener('change', () => Study.rows.length && renderStudy());
+  $('#stExport').onclick = () => Study.rows.length ? downloadCSV('shruti_simulation_study', SIM_COLS, Study.rows) : toast('Nothing to export yet.', 'err');
+  $('#stClear').onclick = () => { Study.rows = []; renderStudy(); $('#stStatus').textContent = 'Cleared.'; };
+  $('#stWav').onclick = guard(studyExportAudio);
+}
+
+
+/* ---------- DRONE (v2): synthetic tanpura-like loop + live calibration ---------- */
+const Drone = {
+  src: null, g: null,
+  start() {
+    const ctx = Engine.ensure(); if (this.src) this.stop();
+    const L = 6.4, n = Math.round(L * ctx.sampleRate), x = synthDrone(state.sa, ctx.sampleRate, L, mulberry32(7), true), buf = ctx.createBuffer(1, n, ctx.sampleRate), d = buf.getChannelData(0);
+    let pk = 1e-9; for (let i = 0; i < n; i++) pk = Math.max(pk, Math.abs(x[i])); const gain = Math.min(0.2 / rmsOf(x), 0.9 / pk);
+    for (let i = 0; i < n; i++) d[i] = x[i] * gain;
+    const s = ctx.createBufferSource(), g = ctx.createGain(); s.buffer = buf; s.loop = true; g.gain.value = 0; s.connect(g); g.connect(Engine.master); s.start();
+    g.gain.setTargetAtTime(1, ctx.currentTime, 0.05); this.src = s; this.g = g; updateStatusbar();
+  },
+  stop() {
+    if (!this.src) return; const s = this.src, g = this.g, ctx = Engine.ctx; this.src = null; this.g = null;
+    try { g.gain.setTargetAtTime(0, ctx.currentTime, 0.04); s.stop(ctx.currentTime + 0.3); } catch (e) {}
+    s.onended = () => { try { s.disconnect(); g.disconnect(); } catch (e) {} };
+    updateStatusbar();
+  }
+};
+Live.droneProf = null; Live.calib = null;
+function calibCollect(buf) {
+  const c = Live.calib; c.frames.push(Float32Array.from(buf)); const el = performance.now() - c.t0;
+  $('#calStatus').textContent = 'Calibrating… keep the drone sounding and stay silent (' + (el / 1000).toFixed(1) + ' / 3.0 s)';
+  if (el < 3000) return;
+  Live.calib = null; const fr = c.frames, lvl = fr.reduce((a, f) => a + rmsDb(f), 0) / fr.length;
+  if (lvl < -65) { $('#calStatus').textContent = 'Calibration failed: the microphone heard almost nothing (' + lvl.toFixed(0) + ' dBFS). Start a drone, use speakers (not headphones) and try again.'; toast('No drone heard during calibration.', 'err'); return; }
+  Live.droneProf = droneProfileFromFrames(fr.filter((_, i) => i % 2 === 0)); Live.droneSa = state.sa; Live.tracker = null;
+  state.algo = 'drone'; syncBound();
+  $('#calStatus').textContent = 'Calibrated from ' + Live.droneProf.frames + ' frames (drone level ' + lvl.toFixed(0) + ' dBFS). Algorithm switched to Drone-aware — now sing or hum.';
+  toast('Drone calibrated. Drone-aware mode is on.');
+}
+function wireDrone() {
+  $('#droneOn').onclick = guard(async () => { Drone.start(); });
+  $('#droneOff').onclick = () => Drone.stop();
+  $('#calBtn').onclick = guard(async () => {
+    if (Mic.state === 'requesting') throw new Error('Waiting for the microphone permission prompt.');
+    if (Mic.state === 'idle') { await Mic.start('Live Visualizer', state.proc); Live.tracker = null; Live.last = null; }
+    if (Mic.state !== 'active' || Mic.owner !== 'Live Visualizer') throw new Error('The microphone is in use by another tool (' + Mic.owner + '). Stop it first.');
+    Live.calib = { frames: [], t0: performance.now() }; $('#calStatus').textContent = 'Calibrating…';
+  });
+  $('#calClear').onclick = () => { Live.droneProf = null; Live.calib = null; Live.tracker = null; $('#calStatus').textContent = 'Calibration cleared.'; };
+}
+
+/* ---------- boot: wiring ---------- */
+function wire() {
+  // navigation menu
+  $('#menuBtn').onclick = () => { const o = $('#navLinks').classList.toggle('open'); $('#menuBtn').setAttribute('aria-expanded', o); };
+  window.addEventListener('hashchange', route);
+  window.addEventListener('resize', () => { const p = Pages[current]; if (p && p.resize) p.resize(); });
+  const stopMicSafe = () => { if (Lab.rec) labFinish('stopped'); else if (Rev.running) Rev.abort = true; else Mic.stop(); };
+  $('#sbMicStop').onclick = stopMicSafe;
+  $('#sbToneStop').onclick = () => Engine.stopAll();
+  // learn
+  $('#playAroha').onclick = guard(() => Engine.sequence(seqItems([0, 1, 2, 3, 4, 5, 6, 'up'], 650)));
+  $('#playAvaroha').onclick = guard(() => Engine.sequence(seqItems(['up', 6, 5, 4, 3, 2, 1, 0], 650)));
+  $('#learnStop').onclick = () => Engine.stopAll();
+  // live tone
+  $('#playSa').onclick = guard(async () => { Engine.ensure(); if (!Engine.saVoice || Engine.saVoice.released) Engine.saVoice = Engine.start(state.sa); refreshToneUI(); });
+  $('#stopTone').onclick = () => Engine.stopAll();
+  // mic
+  $('#micStart').onclick = guard(async () => { try { await Mic.start('Live Visualizer', state.proc); } finally { micUI(); } Live.tracker = null; Live.last = null; readout(null, 'Listening… sing or hum a sustained note.'); });
+  $('#micStop').onclick = stopMicSafe;
+  micHandlers['Live Visualizer'] = liveFrame;
+  $('#clearTrace').onclick = () => { Live.hist = []; };
+  // explore
+  ['#exApos', '#exAoct', '#exBpos', '#exBoct'].forEach(id => $(id).addEventListener('change', updateExplore));
+  const exT = (...keys) => { const s = exSel(); return keys.map(k => freqOf(s[k].i, s[k].o)); };
+  $('#exPlayA').onclick = guard(() => Engine.sequence([{ freq: exT('a')[0], ms: 1500 }]));
+  $('#exPlayB').onclick = guard(() => Engine.sequence([{ freq: exT('b')[0], ms: 1500 }]));
+  $('#exSeq').onclick = guard(() => { const [a, b] = exT('a', 'b'); return Engine.sequence([{ freq: a, ms: 1200 }, { freq: b, ms: 1200 }]); });
+  $('#exTogether').onclick = guard(() => { const [a, b] = exT('a', 'b'); return Engine.sequence([{ freqs: [a, b], ms: 2500 }]); });
+  $('#exStop').onclick = () => Engine.stopAll();
+  $('#calcA').addEventListener('input', updateCalc); $('#calcB').addEventListener('input', updateCalc);
+  // lab: tone
+  $('#labTonePlay').onclick = guard(() => { const f = parseFloat($('#labToneF').value), d = parseFloat($('#labToneD').value); if (!(f >= 40 && f <= 2000)) throw new Error('Frequency must be 40–2000 Hz.'); if (!(d >= 0.5 && d <= 30)) throw new Error('Duration must be 0.5–30 s.'); return Engine.sequence([{ freq: f, ms: d * 1000 }]); });
+  $('#labToneSa').onclick = () => { $('#labToneF').value = state.sa; };
+  $('#labToneStop').onclick = () => Engine.stopAll();
+  // lab: pitch recording
+  $('#labRec').onclick = guard(labStart);
+  $('#labRecStop').onclick = () => labFinish('stopped');
+  $('#labExport').onclick = () => Lab.rows.length ? downloadCSV('shruti_pitch_measurements', LAB_CSV, Lab.rows) : toast('No pitch measurements to export yet.', 'err');
+  $('#labClear').onclick = () => { Lab.rows = []; Lab.runs = []; Lab.last = null; renderLab(); drawLabCharts(); };
+  // lab: reverb
+  $('#revRun').onclick = guard(revRun);
+  $('#revStop').onclick = () => { Rev.abort = true; };
+  $('#revSelf').onclick = guard(revSelfCheck);
+  $('#revExport').onclick = () => Rev.rows.length ? downloadCSV('shruti_decay_measurements', REV_CSV, Rev.rows) : toast('No decay measurements to export yet.', 'err');
+  $('#revClear').onclick = () => { Rev.rows = []; Rev.last = null; renderRev(); drawRev(); };
+  // tests
+  $('#tRun').onclick = guard(runTests);
+  $('#tReset').onclick = () => { for (const k in TDEF) $('#' + k).value = TDEF[k]; showTestCfg(); };
+  $('#tExport').onclick = () => { if (!TestState.rows.length) return; const c = TestState.cfg; downloadCSV('shruti_synthetic_tests', ['run', 'algorithmVersion', 'algorithm', 'signal', 'snrDb', 'noiseSeed', 'sampleRate', 'frameSize', 'hop', 'durationSec', 'minConfidence', 'silenceGateDb', 'thresholdCents', 'minVoicedPct', 'expectedHz', 'detectedHz', 'errHz', 'relErrPct', 'centsErr', 'voicedPct', 'result'], TestState.rows.map(r => Object.assign({}, c, r, { snrDb: c.snrDb === null ? 'none' : c.snrDb }))); };
+  $$('#page-tests input,#page-tests select').forEach(el => el.addEventListener('input', showTestCfg));
+}
+let rafId = 0, lastAn = 0;
+function tick(ts) {
+  rafId = requestAnimationFrame(tick);
+  if (document.hidden) return;
+  if (Mic.state === 'active' && Mic.an && ts - lastAn >= 28) {         // one analysis loop, ~35 Hz
+    lastAn = ts; Mic.an.getFloatTimeDomainData(Mic.buf);
+    const h = micHandlers[Mic.owner]; if (h) h(Mic.buf, ts);
+  }
+  const p = Pages[current]; if (p && p.draw) p.draw(ts);
+}
+function shutdown() { cancelAnimationFrame(rafId); clearInterval(Rev.timer); Engine.stopAll(); Mic.stop(); if (Engine.ctx && Engine.ctx.state !== 'closed') Engine.ctx.close(); }
+window.addEventListener('pagehide', shutdown);
+
+(function init() {
+  buildMandala($('#logoMark').appendChild(document.createElementNS('http://www.w3.org/2000/svg', 'svg')), false);
+  populateTargets(); bindAll(); wire(); wireStudy(); wireDrone(); syncBound(); refreshMusic(); micUI(); refreshToneUI(); readout(null, '');
+  $('#tSettings').textContent = ''; route(); rafId = requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>
